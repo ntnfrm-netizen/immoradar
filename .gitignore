@@ -1,0 +1,12 @@
+.DS_Store
+node_modules
+.vercel
+/tmp
+*.metadata.json
+*.resolved
+*.resolved.0
+implementation_plan.md
+deployment_plan.md
+task.md
+walkthrough.md
+immoradar.md

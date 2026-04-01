@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ImmoRadar</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1A2E35">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Icons (Lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <!-- App Container -->
+    <div id="app">
+        <!-- Header -->
+        <header class="app-header">
+            <h1 id="view-title">ImmoRadar</h1>
+            <div class="header-actions">
+                <button class="icon-btn" onclick="app.openModal('import-modal')"><i data-lucide="mail"></i></button>
+                <button class="icon-btn" onclick="app.refreshData()"><i data-lucide="refresh-cw"></i></button>
+            </div>
+        </header>
+
+        <!-- Main Content (Views) -->
+        <main id="content">
+            <!-- Alertes View -->
+            <section id="view-alerts" class="view">
+                <div class="filter-bar">
+                    <span class="badge">Sceaux</span>
+                    <span class="badge">Antony</span>
+                    <span class="badge">Bourg-la-Reine</span>
+                    <span class="badge active">+4 villes</span>
+                </div>
+                <div id="alerts-list" class="cards-container">
+                    <!-- Cards will be injected here -->
+                    <div class="loading-state">Récupération des mails Gmail...</div>
+                </div>
+            </section>
+
+            <!-- Carte View -->
+            <section id="view-map" class="view hidden">
+                <div id="map-container">
+                    <div class="map-placeholder">
+                        <i data-lucide="map-pin" size="48"></i>
+                        <p>Carte de découverte Sceaux & 92 Sud</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tournée View -->
+            <section id="view-tour" class="view hidden">
+                <div class="tour-config">
+                    <button class="chip active" onclick="app.setTourFilter(7)">7 jours</button>
+                    <button class="chip" onclick="app.setTourFilter(14)">2 semaines</button>
+                    <button class="chip" onclick="app.setTourFilter(30)">1 mois</button>
+                </div>
+                <div class="tour-summary">
+                    <p>Optimisez votre visite pour les <strong>5 biens</strong> récents.</p>
+                    <button class="primary-btn" onclick="app.generateRoute()">
+                        <i data-lucide="navigation"></i> Lancer la Tournée
+                    </button>
+                </div>
+                <div id="tour-list" class="tour-itinerary">
+                    <!-- Stops will be injected here -->
+                </div>
+            </section>
+
+            <!-- Favoris View -->
+            <section id="view-favorites" class="view hidden">
+                <div id="favorites-list" class="cards-container">
+                    <div class="empty-state">
+                        <i data-lucide="heart" size="48"></i>
+                        <p>Aucun bien en favoris pour le moment.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Manual Add Modal -->
+        <div id="add-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Nouveau Bien</h2>
+                    <button class="close-btn" onclick="app.closeModal('add-modal')"><i data-lucide="x"></i></button>
+                </div>
+                <form id="add-form">
+                    <div class="form-group">
+                        <label>Ville</label>
+                        <select id="add-city" required>
+                            <option value="Sceaux">Sceaux</option>
+                            <option value="Bourg-la-Reine">Bourg-la-Reine</option>
+                            <option value="Antony">Antony</option>
+                            <option value="Châtenay-Malabry" selected>Châtenay-Malabry</option>
+                            <option value="Le Plessis-Robinson">Le Plessis-Robinson</option>
+                            <option value="Fontenay-aux-Roses">Fontenay-aux-Roses</option>
+                            <option value="Clamart">Clamart</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Prix (€)</label>
+                            <input type="number" id="add-price" placeholder="450000" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Surface (m²)</label>
+                            <input type="number" id="add-surface" placeholder="45" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>URL / Lien SeLoger</label>
+                        <input type="url" id="add-url" placeholder="https://seloger.com/..." required>
+                    </div>
+                    <button type="submit" class="submit-btn" onclick="app.handleManualAdd(event)">Enregistrer</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Import Email Modal -->
+        <div id="import-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Importer une Alerte</h2>
+                    <button class="close-btn" onclick="app.closeModal('import-modal')"><i data-lucide="x"></i></button>
+                </div>
+                <div class="form-group">
+                    <label>Copiez le contenu du mail SeLoger ici :</label>
+                    <textarea id="email-content" rows="6" placeholder="Ex: 850 000 € - 95 m² - Sceaux..." style="width:100%; border-radius:8px; padding:10px; background:#1E293B; color:white; border:1px solid rgba(255,255,255,0.1);"></textarea>
+                </div>
+                <p style="font-size:0.75rem; color: #94A3B8; margin-bottom: 1rem;">L'IA extraira automatiquement le prix, la surface et la ville.</p>
+                <button class="submit-btn" onclick="app.parseEmail()">Analyser & Ajouter</button>
+            </div>
+        </div>
+
+        <!-- Navigation Bar -->
+        <nav class="tab-bar">
+            <button class="tab-item active" onclick="app.switchView('alerts')">
+                <i data-lucide="bell"></i>
+                <span>Alertes</span>
+            </button>
+            <button class="tab-item" onclick="app.switchView('map')">
+                <i data-lucide="map"></i>
+                <span>Carte</span>
+            </button>
+            <button class="tab-plus" onclick="app.openModal('add-modal')">
+                <div class="plus-circle"><i data-lucide="plus"></i></div>
+            </button>
+            <button class="tab-item" onclick="app.switchView('tour')">
+                <i data-lucide="route"></i>
+                <span>Tournée</span>
+            </button>
+            <button class="tab-item" onclick="app.switchView('favorites')">
+                <i data-lucide="heart"></i>
+                <span>Favoris</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- App Script -->
+    <script src="app.js"></script>
+    <script>
+        // Init Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
