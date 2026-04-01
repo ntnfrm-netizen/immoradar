@@ -1,16 +1,4 @@
 {
-  "version": 2,
-  "name": "immoradar",
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "index.css", "use": "@vercel/static" },
-    { "src": "app.js", "use": "@vercel/static" },
-    { "src": "manifest.json", "use": "@vercel/static" },
-    { "src": "sw.js", "use": "@vercel/static" }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "/$1" },
-    { "handle": "filesystem" }
-  ],
-  "cleanUrls": true
+  "cleanUrls": true,
+  "trailingSlash": false
 }
