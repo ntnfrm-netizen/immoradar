@@ -147,6 +147,17 @@ const app = {
     async refreshData() {
         if (!this.state.tokenResponse) return;
 
+        // Attente si GAPI n'est pas encore prêt (max 5s)
+        let gapiWait = 0;
+        while (!this.state.gapiLoaded && gapiWait < 50) {
+            await new Promise(r => setTimeout(r, 100));
+            gapiWait++;
+        }
+
+        if (!this.state.gapiLoaded) {
+            return alert("Le service de connexion Google met trop de temps à répondre. Vérifiez votre connexion internet.");
+        }
+
         console.log('Synchronisation Gmail en cours...');
         const btn = document.querySelector('[onclick="app.refreshData()"] i');
         if (btn) btn.classList.add('animate-spin');
@@ -154,6 +165,11 @@ const app = {
         try {
             // Configuration manuelle du token
             gapi.client.setToken({ access_token: this.state.tokenResponse.access_token });
+
+            if (!gapi.client.gmail) {
+                console.error("Gmail Client non initialisé");
+                return alert("Erreur d'initialisation Gmail. Veuillez recharger la page.");
+            }
 
             // Recherche plus large pour ne rien rater (SeLoger utilise plusieurs adresses)
             const response = await gapi.client.gmail.users.messages.list({
@@ -166,6 +182,9 @@ const app = {
             
             if (messages.length === 0) {
                 alert("Aucun mail SeLoger reçu ces 7 derniers jours sur ce compte Gmail.");
+                // On vide le chargement
+                const container = document.getElementById('alerts-list');
+                if (container) container.innerHTML = '<div class="empty-state"><p>Aucun mail SeLoger récent trouvé.</p></div>';
             } else {
                 await this.processMessages(messages);
             }
@@ -174,6 +193,8 @@ const app = {
             if (err.status === 401) {
                 alert("Session expirée, veuillez vous reconnecter.");
                 this.handleAuthClick();
+            } else {
+                alert("Erreur lors de la récupération des mails. Vérifiez votre connexion.");
             }
         } finally {
             if (btn) btn.classList.remove('animate-spin');
