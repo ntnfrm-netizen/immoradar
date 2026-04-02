@@ -296,6 +296,41 @@ const app = {
 
     openModal(id) { document.getElementById(id).classList.remove('hidden'); },
     closeModal(id) { document.getElementById(id).classList.add('hidden'); },
+            // Fallback radical : demande l'ID d'abord
+            google.accounts.id.prompt();
+        }
+    },
+
+    handleCredentialResponse(response) {
+        // Décodage du JWT
+        const base64Url = response.credential.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        this.state.user = JSON.parse(jsonPayload);
+        localStorage.setItem('immo_user', JSON.stringify(this.state.user));
+        this.updateAuthUI();
+    },
+
+    updateAuthUI() {
+        const loginBtn = document.getElementById('login-button');
+        const logoutBtn = document.getElementById('logout-button');
+        if (this.state.user) {
+            if (loginBtn) loginBtn.classList.add('hidden');
+            if (logoutBtn) logoutBtn.classList.remove('hidden');
+        } else {
+            if (loginBtn) loginBtn.classList.remove('hidden');
+            if (logoutBtn) logoutBtn.classList.add('hidden');
+        }
+    },
+
+    handleLogoutClick() {
+        google.accounts.id.disableAutoSelect();
+        this.state.user = null;
+        this.state.token = null;
+        localStorage.removeItem('immo_user');
+        this.updateAuthUI();
+        this.render();
+    },
 
     render() {
         if (this.state.activeView === 'alerts') this.renderList('alerts-list', this.state.listings);
@@ -315,10 +350,10 @@ const app = {
                         <i data-lucide="user-plus" style="width: 40px; height: 40px; color: #C5A021; margin-bottom: 15px;"></i>
                         <h3 style="color: white; margin-bottom: 10px;">Connexion requise</h3>
                         <p style="color: #94A3B8; font-size: 0.9rem; margin-bottom: 20px;">Connectez votre compte Google pour voir vos alertes SeLoger.</p>
-                        <button onclick="app.handleAuthClick()" style="background: #C5A021; color: #1A2E35; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 600;">Se connecter</button>
+                        <button onclick="app.handleAuthClick()" style="background: #C5A021; color: #1A2E35; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 600; cursor: pointer;">Se connecter</button>
                     </div>
                 </div>`;
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
             return;
         }
 
@@ -326,13 +361,12 @@ const app = {
             container.innerHTML = `
                 <div class="empty-state">
                     <p>Aucun bien trouvé pour le moment.</p>
-                    <button onclick="app.refreshData()" style="margin-top: 10px; opacity: 0.5; background: none; border: 1px solid white; color: white; padding: 10px; border-radius: 10px;">Réglages / Sync 🔄</button>
+                    <button onclick="app.refreshData()" style="margin-top: 10px; opacity: 0.5; background: none; border: 1px solid white; color: white; padding: 10px; border-radius: 10px; cursor: pointer;">Réglages / Sync 🔄</button>
                 </div>`;
         } else {
-            // Tri par date décroissante
             const sorted = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
             container.innerHTML = sorted.map(item => this.createCardHTML(item)).join('');
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
         }
     },
 
@@ -343,6 +377,25 @@ const app = {
         const tourItems = this.state.listings.filter(l => new Date(l.date).getTime() > threshold);
         if (tourItems.length === 0) container.innerHTML = '<p class="empty-state">Aucun bien récent.</p>';
         else container.innerHTML = tourItems.map((item, i) => `<div class="tour-stop"><div class="stop-number">${i+1}</div><div class="stop-info"><h3>${item.city}</h3><p>${item.price.toLocaleString()}€ - ${item.surface}m²</p></div></div>`).join('');
+    },
+
+    switchView(viewId) {
+        document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+        const targetView = document.getElementById(`view-${viewId}`);
+        if (targetView) targetView.classList.remove('hidden');
+        
+        document.querySelectorAll('.tab-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('onclick') && item.getAttribute('onclick').includes(viewId)) item.classList.add('active');
+        });
+
+        const titleEl = document.getElementById('view-title');
+        const titles = { 'alerts':'IMMORADAR', 'map':'Carte', 'tour':'Tournée', 'favorites':'Favoris' };
+        if (titleEl) {
+            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.8.8</span>`;
+        }
+        this.state.activeView = viewId;
+        this.render();
     },
 
     createCardHTML(item) {
