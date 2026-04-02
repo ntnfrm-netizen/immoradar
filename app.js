@@ -379,6 +379,69 @@ const app = {
         else container.innerHTML = tourItems.map((item, i) => `<div class="tour-stop"><div class="stop-number">${i+1}</div><div class="stop-info"><h3>${item.city}</h3><p>${item.price.toLocaleString()}€ - ${item.surface}m²</p></div></div>`).join('');
     },
 
+    async refreshData() {
+        if (!this.state.user) {
+            this.handleAuthClick();
+            return;
+        }
+
+        const btn = document.querySelector('[onclick="app.refreshData()"] i');
+        if (btn) btn.classList.add('animate-spin');
+
+        try {
+            this.renderLoading('Connexion Google API...');
+            
+            // Attente GAPI avec plus de logs
+            let retries = 0;
+            while (!window.gapi && retries < 15) {
+                await new Promise(r => setTimeout(r, 800));
+                retries++;
+                this.renderLoading(`Attente Google... (${retries}/15)`);
+            }
+
+            if (!window.gapi) throw new Error("Impossible de joindre Google (Vérifiez votre connexion)");
+
+            this.renderLoading(`Recherche "SeLoger" sur ${this.state.user.email}...`);
+            
+            const response = await gapi.client.gmail.users.messages.list({
+                'userId': 'me',
+                'q': 'SeLoger', // Recherche très large
+                'maxResults': 30
+            });
+
+            const messages = response.result.messages || [];
+            if (messages.length === 0) {
+                this.renderLoading('Zéro mail "SeLoger" trouvé dans ce compte.');
+                return;
+            }
+
+            this.renderLoading(`${messages.length} mails trouvés. Analyse en cours...`);
+            await this.processMessages(messages);
+            this.render();
+        } catch (error) {
+            console.error('Erreur Sync:', error);
+            const msg = error.result?.error?.message || error.message || "Erreur de connexion";
+            this.renderLoading(`Erreur : ${msg}`);
+        } finally {
+            if (btn) btn.classList.remove('animate-spin');
+        }
+    },
+
+    renderLoading(text) {
+        const container = document.getElementById('alerts-list');
+        if (container && this.state.activeView === 'alerts') {
+            const userEmail = this.state.user ? `<p style="font-size:0.7rem; color:#64748B; margin-top:15px;">Compte : ${this.state.user.email}</p>` : '';
+            container.innerHTML = `
+                <div class="empty-state" style="padding-top: 50px;">
+                    <div style="border: 1px solid rgba(197, 160, 33, 0.2); padding: 25px; border-radius: 20px; background: rgba(0,0,0,0.2);">
+                        <div class="animate-spin" style="display:inline-block; margin-bottom:15px; color:#C5A021; font-size:1.5rem;">🔄</div>
+                        <p style="color: white; font-size: 0.95rem; font-weight: 500;">${text}</p>
+                        ${userEmail}
+                    </div>
+                </div>`;
+        }
+    },
+
     switchView(viewId) {
         document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
         const targetView = document.getElementById(`view-${viewId}`);
@@ -389,10 +452,10 @@ const app = {
             if (item.getAttribute('onclick') && item.getAttribute('onclick').includes(viewId)) item.classList.add('active');
         });
 
-        const titleEl = document.getElementById('view-title');
         const titles = { 'alerts':'IMMORADAR', 'map':'Carte', 'tour':'Tournée', 'favorites':'Favoris' };
+        const titleEl = document.getElementById('view-title');
         if (titleEl) {
-            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.8.8</span>`;
+            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.8.9</span>`;
         }
         this.state.activeView = viewId;
         this.render();
