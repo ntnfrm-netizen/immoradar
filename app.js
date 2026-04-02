@@ -30,7 +30,7 @@ const app = {
     },
 
     async init() {
-        this.logToUI('Démarrage ImmoRadar v1.7.1...');
+        this.logToUI('Démarrage ImmoRadar v1.7.2...');
         this.bindEvents();
         this.loadLocalData();
         this.checkAuthResponseInUrl();
@@ -42,7 +42,9 @@ const app = {
         console.log(msg);
         const logEl = document.getElementById('debug-log');
         if (logEl) {
-            logEl.innerHTML += `> ${msg}<br>`;
+            // Uniquement garder les 10 derniers messages pour éviter les freeze UI
+            const messages = logEl.innerHTML.split('<br>').slice(-15);
+            logEl.innerHTML = messages.join('<br>') + `> ${msg}<br>`;
             logEl.scrollTop = logEl.scrollHeight;
         }
     },
@@ -59,26 +61,45 @@ const app = {
 
     // --- Google Auth ---
     initGoogleAuth() {
-        this.logToUI('Initialisation GAPI...');
-        window.gapiInit = () => {
-            this.logToUI('Chargement Client GAPI...');
-            gapi.load('client', async () => {
-                try {
-                    await gapi.client.init({
-                        apiKey: this.config.API_KEY,
-                        discoveryDocs: this.config.DISCOVERY_DOCS,
-                    });
-                    this.state.gapiLoaded = true;
-                    this.logToUI('GAPI Prêt !');
-                    this.checkExistingToken();
-                } catch (e) {
-                    this.logToUI(`Erreur GAPI Init: ${e.message || e}`);
+        this.logToUI('Vérification GAPI...');
+        
+        let attempts = 0;
+        const checkGapi = setInterval(() => {
+            attempts++;
+            if (typeof gapi !== 'undefined') {
+                clearInterval(checkGapi);
+                this.logToUI('GAPI présent, chargement client...');
+                this.loadGapiClient();
+            } else {
+                if (attempts === 5) this.logToUI('GAPI toujours absent, attente...');
+                if (attempts > 20) {
+                    clearInterval(checkGapi);
+                    this.logToUI('ÉCHEC GAPI : Script non chargé. Réessayez.');
                 }
-            });
-        };
+            }
+        }, 500);
 
-        if (typeof gapi !== 'undefined') window.gapiInit();
-        else this.logToUI('Attente script GAPI...');
+        // Au cas où l'onload de index.html n'ait pas encore défini ce callback
+        window.gapiInit = () => {
+            this.logToUI('Callback GAPI reçu !');
+            if (!this.state.gapiLoaded) this.loadGapiClient();
+        };
+    },
+
+    loadGapiClient() {
+        gapi.load('client', async () => {
+            try {
+                await gapi.client.init({
+                    apiKey: this.config.API_KEY,
+                    discoveryDocs: this.config.DISCOVERY_DOCS,
+                });
+                this.state.gapiLoaded = true;
+                this.logToUI('GAPI Client Prêt !');
+                this.checkExistingToken();
+            } catch (e) {
+                this.logToUI(`Erreur GAPI Init: ${e.message || e}`);
+            }
+        });
     },
 
     handleAuthClick() {
