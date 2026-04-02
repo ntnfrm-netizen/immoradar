@@ -263,7 +263,7 @@ const app = {
 
         if (newListings.length > 0) {
             this.logToUI(`${newListings.length} nouveaux biens trouvés !`);
-            this.state.listings = [...newListings, ...this.state.listings];
+                    this.state.listings = [...newListings, ...this.state.listings];
             try {
                 const toCache = this.state.listings.filter(l => l && l.source && l.source.includes('SeLoger'));
                 localStorage.setItem('immo_cache', JSON.stringify(toCache));
@@ -278,38 +278,41 @@ const app = {
         const body = this.getBody(msg.payload);
         const date = new Date(parseInt(msg.internalDate)).toISOString();
 
-        // Nettoyage Unicode pour les prix/surfaces (espaces insécables, etc.)
-        const cleanBody = body.replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ');
+        this.logToUI(`Parsing mail ${id.substring(0,5)}...`);
+        this.logToUI(`Body start: ${body.substring(0, 50)}...`);
 
-        // Regex ultra-précises basées sur le format réel
-        const priceRegex = /([0-9\s ]+)(?:€|EUR)/i;
-        const surfaceRegex = /([0-9\s ,.]+)\s*(?:m²|m2)/i;
-        const roomsRegex = /(\d+)\s*pièce/i;
+        // Nettoyage agressif des caractères invisibles et balises HTML résiduelles
+        const cleanBody = body.replace(/<[^>]*>/g, ' ')
+                              .replace(/&nbsp;/g, ' ')
+                              .replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ')
+                              .replace(/\s+/g, ' ');
+
+        // Regex améliorées
+        // Prix : On cherche un gros nombre (min 4 chiffres) suivi de €
+        const priceMatch = cleanBody.match(/([0-9]{1,3}(?:\s[0-9]{3})+|[0-9]{4,10})\s*(?:€|EUR)/i);
+        // Surface : On cherche un nombre suivi de m² ou m2
+        const surfaceMatch = cleanBody.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
+        // Pièces : On cherche "X pièces" ou "X pces"
+        const roomsMatch = cleanBody.match(/(\d+)\s*(?:pièce|pce|p\.)/i);
         
-        const priceMatch = cleanBody.match(priceRegex) || snippet.match(priceRegex);
-        const surfaceMatch = cleanBody.match(surfaceRegex) || snippet.match(surfaceRegex);
-        const roomsMatch = cleanBody.match(roomsRegex) || snippet.match(roomsRegex);
-        
-        // Extraction de l'URL réelle SeLoger
         const urlMatch = cleanBody.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
         const realUrl = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
 
-        let foundCity = "Sceaux"; // Par défaut si on est dans le secteur
+        let foundCity = "Sceaux"; 
         let neighborhood = "";
         
-        // Tentative de détection plus précise de la ville et du quartier
         for (let city of this.state.targetCities) {
             if (cleanBody.toLowerCase().includes(city.toLowerCase()) || snippet.toLowerCase().includes(city.toLowerCase())) {
                 foundCity = city;
-                // Extraction du quartier si présent avant la ville (format: Quartier, Ville)
-                const neighborhoodMatch = cleanBody.match(new RegExp(`([^,.\n]+),\\s*${city}`, 'i'));
+                // Extraction du quartier type "Sceaux, Parc de Sceaux"
+                const neighborhoodMatch = cleanBody.match(new RegExp(`(?:quartier|secteur)?\s*([^,.\n]{3,20}),\s*${city}`, 'i'));
                 if (neighborhoodMatch) neighborhood = neighborhoodMatch[1].trim();
                 break;
             }
         }
 
-        const price = priceMatch ? parseInt(priceMatch[1].replace(/[\s ]/g, '')) : 0;
-        const surface = surfaceMatch ? parseFloat(surfaceMatch[1].replace(/[\s ]/g, '').replace(',', '.')) : 0;
+        const price = priceMatch ? parseInt(priceMatch[1].replace(/\s/g, '')) : 0;
+        const surface = surfaceMatch ? parseFloat(surfaceMatch[1].replace(',', '.')) : 0;
         const rooms = roomsMatch ? roomsMatch[1] : '?';
 
         return {
