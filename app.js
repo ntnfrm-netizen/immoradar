@@ -326,7 +326,7 @@ const app = {
             container.innerHTML = `
                 <div class="empty-state">
                     <p>Aucun bien trouvé pour le moment.</p>
-                    <button onclick="app.refreshData()" style="margin-top: 10px; opacity: 0.5; background: none; border: 1px solid white; color: white; padding: 10px; border-radius: 10px;">Actualiser 🔄</button>
+                    <button onclick="app.refreshData()" style="margin-top: 10px; opacity: 0.5; background: none; border: 1px solid white; color: white; padding: 10px; border-radius: 10px;">Réglages / Sync 🔄</button>
                 </div>`;
         } else {
             // Tri par date décroissante
