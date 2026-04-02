@@ -16,6 +16,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- Icons (Lucide) -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Identity & API -->
+    <script src="https://accounts.google.com/gsi/client" defer></script>
+    <script src="https://apis.google.com/js/api.js" defer></script>
 </head>
 <body>
     <!-- App Container -->
@@ -24,6 +27,10 @@
         <header class="app-header">
             <h1 id="view-title">ImmoRadar</h1>
             <div class="header-actions">
+                <div id="auth-container">
+                    <button id="login-button" class="icon-btn" onclick="app.handleAuthClick()" title="Connexion Google"><i data-lucide="user-plus"></i></button>
+                    <button id="logout-button" class="icon-btn hidden" onclick="app.handleLogoutClick()" title="Déconnexion"><i data-lucide="log-out"></i></button>
+                </div>
                 <button class="icon-btn" onclick="app.openModal('import-modal')"><i data-lucide="mail"></i></button>
                 <button class="icon-btn" onclick="app.refreshData()"><i data-lucide="refresh-cw"></i></button>
             </div>
