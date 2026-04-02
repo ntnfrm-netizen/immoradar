@@ -27,7 +27,7 @@
         <header class="app-header">
             <div class="logo-container">
                 <img src="logo.png" alt="Logo" class="logo-img">
-                <h1 id="view-title">IMMORADAR</h1>
+                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v1.1</span></h1>
             </div>
             <div class="header-actions">
                 <div id="auth-container">
@@ -147,6 +147,11 @@
                 <p style="font-size:0.75rem; color: #94A3B8; margin-bottom: 1rem;">L'IA extraira automatiquement le prix, la surface et la ville.</p>
                 <button class="submit-btn" onclick="app.parseEmail()">Analyser & Ajouter</button>
             </div>
+        </div>
+
+        <!-- Debug Console (Diagnostic) -->
+        <div id="debug-log" style="position:fixed; bottom: 4.5rem; left:0; right:0; background:rgba(0,0,0,0.8); color:#00FF00; font-family:monospace; font-size:0.6rem; padding: 5px; z-index:9999; max-height: 50px; overflow-y: auto; pointer-events:none;">
+            Diagnostic en attente...
         </div>
 
         <!-- Navigation Bar -->

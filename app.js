@@ -29,12 +29,21 @@ const app = {
     },
 
     async init() {
-        console.log('ImmoRadar Initializing...');
+        this.logToUI('Démarrage ImmoRadar v1.1...');
         this.bindEvents();
         this.loadLocalData();
         this.checkAuthResponseInUrl();
         this.initGoogleAuth();
         this.render();
+    },
+
+    logToUI(msg) {
+        console.log(msg);
+        const logEl = document.getElementById('debug-log');
+        if (logEl) {
+            logEl.innerHTML += `> ${msg}<br>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
     },
 
     bindEvents() {
@@ -49,23 +58,32 @@ const app = {
 
     // --- Google Auth ---
     initGoogleAuth() {
+        this.logToUI('Initialisation GAPI/GIS...');
         // Init GAPI
         window.gapiInit = () => {
+            this.logToUI('Chargement Client GAPI...');
             gapi.load('client', async () => {
-                await gapi.client.init({
-                    apiKey: this.config.API_KEY,
-                    discoveryDocs: this.config.DISCOVERY_DOCS,
-                });
-                this.state.gapiLoaded = true;
-                this.checkExistingToken();
+                try {
+                    await gapi.client.init({
+                        apiKey: this.config.API_KEY,
+                        discoveryDocs: this.config.DISCOVERY_DOCS,
+                    });
+                    this.state.gapiLoaded = true;
+                    this.logToUI('GAPI Prêt !');
+                    this.checkExistingToken();
+                } catch (e) {
+                    this.logToUI(`Erreur GAPI Init: ${e.message || e}`);
+                }
             });
         };
 
         // Trigger loading if scripts already loaded
         if (typeof gapi !== 'undefined') window.gapiInit();
+        else this.logToUI('Attente script GAPI...');
     },
 
     handleAuthClick() {
+        this.logToUI('Tentative de connexion...');
         // Utilisation du mode REDIRECT pour éviter les problèmes de cookies/popups sur iOS
         const rootUrl = window.location.origin + window.location.pathname;
         const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -84,6 +102,7 @@ const app = {
         const accessToken = params.get('access_token');
         
         if (accessToken) {
+            this.logToUI('Token détecté dans l\'URL !');
             const resp = {
                 access_token: accessToken,
                 expires_in: params.get('expires_in')
@@ -96,6 +115,7 @@ const app = {
 
     handleLogoutClick() {
         if (this.state.tokenResponse) {
+            this.logToUI('Déconnexion...');
             // Tentative de revoke si possible, sinon simple déconnexion locale
             try {
                 fetch(`https://oauth2.googleapis.com/revoke?token=${this.state.tokenResponse.access_token}`, { method: 'POST', mode: 'no-cors' });
@@ -105,6 +125,7 @@ const app = {
             localStorage.removeItem('immo_token');
             document.getElementById('login-button').classList.remove('hidden');
             document.getElementById('logout-button').classList.add('hidden');
+            this.logToUI('Déconnecté.');
             alert("Déconnexion réussie.");
         }
     },
@@ -112,6 +133,7 @@ const app = {
     handleAuthResponse(resp) {
         this.state.tokenResponse = resp;
         localStorage.setItem('immo_token', JSON.stringify(resp));
+        this.logToUI('Session enregistrée.');
         
         document.getElementById('login-button').classList.add('hidden');
         document.getElementById('logout-button').classList.remove('hidden');
@@ -128,6 +150,7 @@ const app = {
     checkExistingToken() {
         const saved = localStorage.getItem('immo_token');
         if (saved) {
+            this.logToUI('Session existante trouvée.');
             this.state.tokenResponse = JSON.parse(saved);
             document.getElementById('login-button').classList.add('hidden');
             document.getElementById('logout-button').classList.remove('hidden');
@@ -146,6 +169,7 @@ const app = {
 
     async refreshData() {
         if (!this.state.tokenResponse) return;
+        this.logToUI('Lancement synchronisation...');
 
         // Attente si GAPI n'est pas encore prêt (max 5s)
         let gapiWait = 0;
@@ -155,10 +179,10 @@ const app = {
         }
 
         if (!this.state.gapiLoaded) {
+            this.logToUI('Échec : GAPI non chargé après 5s.');
             return alert("Le service de connexion Google met trop de temps à répondre. Vérifiez votre connexion internet.");
         }
 
-        console.log('Synchronisation Gmail en cours...');
         const btn = document.querySelector('[onclick="app.refreshData()"] i');
         if (btn) btn.classList.add('animate-spin');
 
@@ -167,10 +191,12 @@ const app = {
             gapi.client.setToken({ access_token: this.state.tokenResponse.access_token });
 
             if (!gapi.client.gmail) {
+                this.logToUI('Échec : Client Gmail non trouvé.');
                 console.error("Gmail Client non initialisé");
                 return alert("Erreur d'initialisation Gmail. Veuillez recharger la page.");
             }
 
+            this.logToUI('Recherche mails Gmail...');
             // Recherche plus large pour ne rien rater (SeLoger utilise plusieurs adresses)
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
@@ -178,7 +204,7 @@ const app = {
             });
 
             const messages = response.result.messages || [];
-            console.log(`${messages.length} messages SeLoger trouvés depuis 7 jours.`);
+            this.logToUI(`${messages.length} mails trouvés.`);
             
             if (messages.length === 0) {
                 alert("Aucun mail SeLoger reçu ces 7 derniers jours sur ce compte Gmail.");
@@ -189,6 +215,7 @@ const app = {
                 await this.processMessages(messages);
             }
         } catch (err) {
+            this.logToUI(`Erreur Gmail API: ${err.status || err}`);
             console.error('Erreur Gmail API:', err);
             if (err.status === 401) {
                 alert("Session expirée, veuillez vous reconnecter.");
@@ -199,10 +226,12 @@ const app = {
         } finally {
             if (btn) btn.classList.remove('animate-spin');
             this.render();
+            this.logToUI('Synchro terminée.');
         }
     },
 
     async processMessages(messages) {
+        this.logToUI(`Analyse de ${messages.length} messages...`);
         const newListings = [];
         const existingIds = new Set(this.state.listings.map(l => l.id));
 
@@ -230,6 +259,7 @@ const app = {
         }
 
         if (newListings.length > 0) {
+            this.logToUI(`${newListings.length} nouveaux biens trouvés !`);
             this.state.listings = [...newListings, ...this.state.listings];
             localStorage.setItem('immo_cache', JSON.stringify(this.state.listings.filter(l => l.source.includes('SeLoger'))));
             alert(`${newListings.length} nouvelles annonces détectées !`);
@@ -364,7 +394,7 @@ const app = {
         this.closeModal('import-modal');
         document.getElementById('email-content').value = '';
         this.render();
-        alert(`Annonce détectée : ${foundCity}, ${price}€, ${surface}m². Ajoutée aux alertes !`);
+        alert(`Annonce détectée !`);
     },
 
     toggleFavorite(id) {
@@ -395,7 +425,10 @@ const app = {
             'tour': 'Tournée',
             'favorites': 'Favoris'
         };
-        document.getElementById('view-title').textContent = titles[viewId] || 'IMMORADAR';
+        const titleEl = document.getElementById('view-title');
+        if (titleEl) {
+            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.1</span>`;
+        }
         
         this.state.activeView = viewId;
         this.render();
@@ -439,7 +472,7 @@ const app = {
         const threshold = Date.now() - (this.state.tourDaysFilter * 86400000);
         const tourItems = this.state.listings.filter(l => new Date(l.date).getTime() > threshold);
         if (tourItems.length === 0) {
-            container.innerHTML = `<p class="empty-state">Aucun bien récent pour cette période.</p>`;
+            container.innerHTML = `<p class="empty-state">Aucun bien récent trouvé.</p>`;
         } else {
             container.innerHTML = tourItems.map((item, i) => `
                 <div class="tour-stop">
@@ -502,9 +535,5 @@ const app = {
     }
 };
 
-// Global callback for Google scripts
-window.onload = function() {
-    // Intégration GAPI directe au chargement du script si désiré
-};
-
+window.onload = function() {};
 document.addEventListener('DOMContentLoaded', () => app.init());
