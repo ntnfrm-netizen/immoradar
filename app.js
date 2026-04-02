@@ -25,7 +25,6 @@ const app = {
         ],
         tourDaysFilter: 7,
         tokenResponse: null,
-        gisLoaded: false,
         gapiLoaded: false
     },
 
@@ -33,6 +32,7 @@ const app = {
         console.log('ImmoRadar Initializing...');
         this.bindEvents();
         this.loadLocalData();
+        this.checkAuthResponseInUrl();
         this.initGoogleAuth();
         this.render();
     },
@@ -49,17 +49,6 @@ const app = {
 
     // --- Google Auth ---
     initGoogleAuth() {
-        // Init GIS (Identity Services)
-        window.gisInit = () => {
-            this.state.tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: this.config.CLIENT_ID,
-                scope: this.config.SCOPES,
-                callback: (resp) => this.handleAuthResponse(resp),
-            });
-            this.state.gisLoaded = true;
-            this.checkExistingToken();
-        };
-
         // Init GAPI
         window.gapiInit = () => {
             gapi.load('client', async () => {
@@ -68,21 +57,50 @@ const app = {
                     discoveryDocs: this.config.DISCOVERY_DOCS,
                 });
                 this.state.gapiLoaded = true;
+                this.checkExistingToken();
             });
         };
 
         // Trigger loading if scripts already loaded
-        if (typeof google !== 'undefined' && google.accounts) window.gisInit();
         if (typeof gapi !== 'undefined') window.gapiInit();
     },
 
     handleAuthClick() {
-        this.state.tokenClient.requestAccessToken({ prompt: 'consent' });
+        // Utilisation du mode REDIRECT pour éviter les problèmes de cookies/popups sur iOS
+        const rootUrl = window.location.origin + window.location.pathname;
+        const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+            `client_id=${this.config.CLIENT_ID}&` +
+            `redirect_uri=${encodeURIComponent(rootUrl)}&` +
+            `response_type=token&` +
+            `scope=${encodeURIComponent(this.config.SCOPES)}&` +
+            `prompt=consent`;
+            
+        window.location.href = oauthUrl;
+    },
+
+    checkAuthResponseInUrl() {
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        
+        if (accessToken) {
+            const resp = {
+                access_token: accessToken,
+                expires_in: params.get('expires_in')
+            };
+            this.handleAuthResponse(resp);
+            // Nettoyage de l'URL pour ne pas garder le token visible
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     },
 
     handleLogoutClick() {
         if (this.state.tokenResponse) {
-            google.accounts.oauth2.revoke(this.state.tokenResponse.access_token);
+            // Tentative de revoke si possible, sinon simple déconnexion locale
+            try {
+                fetch(`https://oauth2.googleapis.com/revoke?token=${this.state.tokenResponse.access_token}`, { method: 'POST', mode: 'no-cors' });
+            } catch(e) {}
+            
             this.state.tokenResponse = null;
             localStorage.removeItem('immo_token');
             document.getElementById('login-button').classList.remove('hidden');
@@ -92,15 +110,19 @@ const app = {
     },
 
     handleAuthResponse(resp) {
-        if (resp.error) return console.error(resp);
         this.state.tokenResponse = resp;
         localStorage.setItem('immo_token', JSON.stringify(resp));
         
         document.getElementById('login-button').classList.add('hidden');
         document.getElementById('logout-button').classList.remove('hidden');
         
-        // Premier chargement automatique
-        this.refreshData();
+        // On attend que GAPI soit prêt avant de rafraîchir
+        const checkGapi = setInterval(() => {
+            if (this.state.gapiLoaded) {
+                clearInterval(checkGapi);
+                this.refreshData();
+            }
+        }, 100);
     },
 
     checkExistingToken() {
@@ -109,37 +131,37 @@ const app = {
             this.state.tokenResponse = JSON.parse(saved);
             document.getElementById('login-button').classList.add('hidden');
             document.getElementById('logout-button').classList.remove('hidden');
-            // On tente un rafraîchissement au démarrage comme demandé
-            setTimeout(() => this.refreshData(), 1000);
+            
+            // Rafraîchissement automatique au démarrage
+            if (this.state.gapiLoaded) {
+                this.refreshData();
+            }
         }
     },
 
     // --- Data Management ---
     loadLocalData() {
-        // On fusionne le cache des annonces Gmail avec les ajouts manuels
         this.state.listings = [...(JSON.parse(localStorage.getItem('immo_cache') || '[]')), ...this.state.manualAdditions];
     },
 
     async refreshData() {
-        if (!this.state.tokenResponse) {
-            return alert("Veuillez vous connecter à Google pour synchroniser les alertes.");
-        }
+        if (!this.state.tokenResponse) return;
 
         console.log('Synchronisation Gmail en cours...');
         const btn = document.querySelector('[onclick="app.refreshData()"] i');
-        btn.classList.add('animate-spin');
+        if (btn) btn.classList.add('animate-spin');
 
         try {
-            // 1. Lister les messages SeLoger des 7 derniers jours
+            // Configuration manuelle du token car on n'utilise plus Google Identity Services (GIS)
+            gapi.client.setToken({ access_token: this.state.tokenResponse.access_token });
+
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
                 'q': 'from:noreply@seloger.com after:7d'
             });
 
             const messages = response.result.messages || [];
-            if (messages.length === 0) {
-                alert("Aucune nouvelle alerte SeLoger trouvée sur les 7 derniers jours.");
-            } else {
+            if (messages.length > 0) {
                 await this.processMessages(messages);
             }
         } catch (err) {
@@ -149,7 +171,7 @@ const app = {
                 this.handleAuthClick();
             }
         } finally {
-            btn.classList.remove('animate-spin');
+            if (btn) btn.classList.remove('animate-spin');
             this.render();
         }
     },
@@ -158,7 +180,10 @@ const app = {
         const newListings = [];
         const existingIds = new Set(this.state.listings.map(l => l.id));
 
-        for (const msg of messages) {
+        // Limitation à 10 messages pour éviter de saturer le mobile lors du premier fetch
+        const itemsToProcess = messages.slice(0, 10);
+
+        for (const msg of itemsToProcess) {
             if (existingIds.has(msg.id)) continue;
 
             const detail = await gapi.client.gmail.users.messages.get({
@@ -176,7 +201,7 @@ const app = {
         if (newListings.length > 0) {
             this.state.listings = [...newListings, ...this.state.listings];
             localStorage.setItem('immo_cache', JSON.stringify(this.state.listings.filter(l => l.source.includes('SeLoger'))));
-            alert(`${newListings.length} nouvelles annonces détectées sur votre secteur !`);
+            alert(`${newListings.length} nouvelles annonces détectées !`);
         }
     },
 
@@ -185,7 +210,6 @@ const app = {
         const body = this.getBody(msg.payload);
         const date = new Date(parseInt(msg.internalDate)).toISOString();
 
-        // Extraction par Regex depuis le snippet ou le body
         const priceMatch = snippet.match(/([0-9\s]+)[€|EUR]/i) || body.match(/([0-9\s]+)[€|EUR]/i);
         const surfaceMatch = snippet.match(/([0-9\s,]+)[m²|m2]/i) || body.match(/([0-9\s,]+)[m²|m2]/i);
         
@@ -209,7 +233,7 @@ const app = {
             price: price,
             surface: surface,
             rooms: '?',
-            url: 'https://seloger.com', // Idéalement extraire l'URL réelle du message
+            url: 'https://seloger.com',
             date: date,
             img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80'
         };
@@ -257,7 +281,6 @@ const app = {
         this.render();
     },
 
-    // --- View Controller & Tools ---
     parseEmail() {
         const content = document.getElementById('email-content').value;
         if (!content) return alert("Veuillez coller le contenu du mail.");
@@ -337,7 +360,6 @@ const app = {
         document.getElementById(id).classList.add('hidden');
     },
 
-    // --- Rendering ---
     render() {
         if (this.state.activeView === 'alerts') this.renderAlerts();
         if (this.state.activeView === 'favorites') this.renderFavorites();
@@ -433,7 +455,7 @@ const app = {
 
 // Global callback for Google scripts
 window.onload = function() {
-    // These will be called by app.initGoogleAuth()
+    // Intégration GAPI directe au chargement du script si désiré
 };
 
 document.addEventListener('DOMContentLoaded', () => app.init());
