@@ -152,16 +152,21 @@ const app = {
         if (btn) btn.classList.add('animate-spin');
 
         try {
-            // Configuration manuelle du token car on n'utilise plus Google Identity Services (GIS)
+            // Configuration manuelle du token
             gapi.client.setToken({ access_token: this.state.tokenResponse.access_token });
 
+            // Recherche plus large pour ne rien rater (SeLoger utilise plusieurs adresses)
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
-                'q': 'from:noreply@seloger.com after:7d'
+                'q': 'from:seloger.com after:7d'
             });
 
             const messages = response.result.messages || [];
-            if (messages.length > 0) {
+            console.log(`${messages.length} messages SeLoger trouvés depuis 7 jours.`);
+            
+            if (messages.length === 0) {
+                alert("Aucun mail SeLoger reçu ces 7 derniers jours sur ce compte Gmail.");
+            } else {
                 await this.processMessages(messages);
             }
         } catch (err) {
