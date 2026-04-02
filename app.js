@@ -249,12 +249,13 @@ const app = {
                 });
 
                 const parsed = this.parseGmailMessage(detail.result, msg.id);
-                if (parsed && this.state.targetCities.includes(parsed.city)) {
+                // Le filtre est déjà fait dans parseGmailMessage, on est plus large ici
+                if (parsed) {
                     newListings.push(parsed);
                 }
             } catch (err) {
-                console.warn(`Erreur lors de la lecture du message ${msg.id}:`, err);
-                continue; // On passe au message suivant
+                this.logToUI(`Erreur lecture ${msg.id}`);
+                continue;
             }
         }
 
