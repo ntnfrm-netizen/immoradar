@@ -192,12 +192,26 @@ const app = {
         }
 
         const cleanBody = body.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&middot;/g, '·').replace(/\s+/g, ' ');
-        const combined = cleanBody + " | " + (msg.snippet || "");
+        const snippet = (msg.snippet || "").replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+        const combined = cleanBody + " | SNIPPET: " + snippet;
 
-        // 1. Prix (Regex améliorée pour éviter les collisions avec ZipCode ou Pièces)
-        // On cherche un nombre suivi de € qui n'est pas collé à un autre chiffre à gauche
-        const priceMatch = combined.match(/(?:\s|^)([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
-        const price = priceMatch ? parseInt(priceMatch[1].replace(/\s/g, '')) : 0;
+        // 1. Prix (Regex chirurgicale)
+        // On cherche un nombre suivi de € qui n'est PAS collé à un chiffre à gauche
+        // On teste d'abord dans le snippet qui est plus propre
+        let priceMatch = snippet.match(/(?:^|\D)([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
+        if (!priceMatch) {
+            priceMatch = cleanBody.match(/(?:^|\D)([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
+        }
+        
+        let price = priceMatch ? parseInt(priceMatch[1].replace(/\s/g, '')) : 0;
+
+        // Sécurité anti-prix aberrant (ex: 9 850 000€ pour Sceaux)
+        if (price > 5000000) {
+            // On essaie de recouper avec une regex plus restrictive
+            const secondaryMatch = combined.match(/(?:Prix|vendre|vendu)\s*[:]?\s*([0-9]{1,3}(?:\s[0-9]{3})*)\s*(?:€|EUR)/i);
+            if (secondaryMatch) price = parseInt(secondaryMatch[1].replace(/\s/g, ''));
+            else if (price > 9000000) price = parseInt(price.toString().substring(1)); // On retire le 9 intrus
+        }
 
         // 2. Surface & Pièces
         let rooms = '?';
@@ -279,7 +293,7 @@ const app = {
             if (item.getAttribute('onclick').includes(viewId)) item.classList.add('active');
         });
         const titles = { 'alerts':'IMMORADAR', 'map':'Carte', 'tour':'Tournée', 'favorites':'Favoris' };
-        document.getElementById('view-title').innerHTML = `${titles[viewId]} <span style="font-size: 0.6rem; opacity: 0.5;">v1.7.3</span>`;
+        document.getElementById('view-title').innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.7.4</span>`;
         this.state.activeView = viewId;
         this.render();
     },
