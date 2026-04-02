@@ -170,7 +170,7 @@ const app = {
                 });
                 const parsed = this.parseGmailMessage(detail.result, msg.id);
                 
-                if (parsed && parsed.price > 0) {
+                if (parsed && parsed.price > 50000) {
                     newListings.push(parsed);
                 }
             } catch (e) {
@@ -179,8 +179,9 @@ const app = {
         }
 
         if (newListings.length > 0) {
-            this.state.listings = this.deduplicate([...newListings, ...this.state.listings]);
-            const toCache = this.state.listings.filter(l => l.source.includes('SeLoger'));
+            const merged = [...newListings, ...this.state.listings];
+            this.state.listings = this.deduplicate(merged);
+            const toCache = this.state.listings.filter(l => l.source && l.source.includes('SeLoger'));
             localStorage.setItem('immo_cache', JSON.stringify(toCache));
         }
     },
