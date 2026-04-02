@@ -151,16 +151,18 @@ const app = {
         } finally {
             if (btn) btn.classList.remove('animate-spin');
             this.render();
-            this.logToUI('Terminé.');
         }
     },
 
     async processMessages(messages) {
         const newListings = [];
         const items = messages.slice(0, 15);
-        this.logToUI(`Analyse de ${items.length} mails...`);
 
         for (const msg of items) {
+            // Vérifier si le message existe déjà dans le cache par ID
+            const existing = this.state.listings.find(l => l.id === msg.id);
+            if (existing) continue;
+
             try {
                 const detail = await gapi.client.gmail.users.messages.get({
                     'userId': 'me',
@@ -168,12 +170,21 @@ const app = {
                     'format': 'full'
                 });
                 const parsed = this.parseGmailMessage(detail.result, msg.id);
+                
                 if (parsed) {
-                    newListings.push(parsed);
-                    this.logToUI(`OK: ${parsed.price}€ - ${parsed.city}`);
+                    // Prévenir les doublons par contenu (même prix, surface, ville)
+                    const duplicate = newListings.concat(this.state.listings).find(l => 
+                        l.price === parsed.price && 
+                        l.surface === parsed.surface && 
+                        l.city === parsed.city
+                    );
+                    
+                    if (!duplicate) {
+                        newListings.push(parsed);
+                    }
                 }
             } catch (e) {
-                this.logToUI(`Erreur mail ${msg.id.substring(0,5)}`);
+                console.error(`Erreur mail`, e);
             }
         }
 
@@ -181,8 +192,6 @@ const app = {
             this.state.listings = [...newListings, ...this.state.listings];
             const toCache = this.state.listings.filter(l => l.source.includes('SeLoger'));
             localStorage.setItem('immo_cache', JSON.stringify(toCache));
-        } else {
-            this.logToUI("Aucune annonce valide trouvée.");
         }
     },
 
@@ -191,11 +200,8 @@ const app = {
         const subject = headers.find(h => h.name === 'Subject')?.value || "Sans titre";
         const body = this.getBody(msg.payload);
         
-        this.logToUI(`Mail: ${subject.substring(0, 20)}...`);
-
-        // Filtre de sécurité assoupli
+        // Filtre de sécurité
         if (subject.toLowerCase().includes("confirmation") || subject.toLowerCase().includes("bienvenue")) {
-            this.logToUI("Ignoré (Mail service)");
             return null;
         }
 
@@ -203,7 +209,7 @@ const app = {
         const snippet = (msg.snippet || "").replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
         const combined = (cleanBody + " " + snippet).toLowerCase();
 
-        // 1. Prix (Plus large)
+        // 1. Prix (Regex chirurgicale)
         let price = 0;
         const priceMatch = (cleanBody + " " + snippet).match(/(?:\s|^)([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
         
@@ -233,7 +239,6 @@ const app = {
 
         // Si on n'a absolument rien trouvé, on ignore
         if (price === 0 && surface === 0) {
-            this.logToUI("Pas d'infos trouvées.");
             return null;
         }
 
