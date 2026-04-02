@@ -218,37 +218,44 @@ const app = {
         // Nettoyage Unicode pour les prix/surfaces (espaces insécables, etc.)
         const cleanBody = body.replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ');
 
-        // Regex plus robustes
+        // Regex ultra-précises basées sur le format réel
         const priceRegex = /([0-9\s ]+)(?:€|EUR)/i;
         const surfaceRegex = /([0-9\s ,.]+)\s*(?:m²|m2)/i;
+        const roomsRegex = /(\d+)\s*pièce/i;
         
         const priceMatch = cleanBody.match(priceRegex) || snippet.match(priceRegex);
         const surfaceMatch = cleanBody.match(surfaceRegex) || snippet.match(surfaceRegex);
+        const roomsMatch = cleanBody.match(roomsRegex) || snippet.match(roomsRegex);
         
-        // Extraction de l'URL réelle SeLoger (cherche le premier lien d'annonce)
+        // Extraction de l'URL réelle SeLoger
         const urlMatch = cleanBody.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
         const realUrl = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
 
-        let foundCity = "";
+        let foundCity = "Sceaux"; // Par défaut si on est dans le secteur
+        let neighborhood = "";
+        
+        // Tentative de détection plus précise de la ville et du quartier
         for (let city of this.state.targetCities) {
             if (cleanBody.toLowerCase().includes(city.toLowerCase()) || snippet.toLowerCase().includes(city.toLowerCase())) {
                 foundCity = city;
+                // Extraction du quartier si présent avant la ville (format: Quartier, Ville)
+                const neighborhoodMatch = cleanBody.match(new RegExp(`([^,.\n]+),\\s*${city}`, 'i'));
+                if (neighborhoodMatch) neighborhood = neighborhoodMatch[1].trim();
                 break;
             }
         }
 
-        if (!foundCity) return null;
-
         const price = priceMatch ? parseInt(priceMatch[1].replace(/[\s ]/g, '')) : 0;
         const surface = surfaceMatch ? parseFloat(surfaceMatch[1].replace(/[\s ]/g, '').replace(',', '.')) : 0;
+        const rooms = roomsMatch ? roomsMatch[1] : '?';
 
         return {
             id: id,
             source: 'SeLoger (Gmail)',
-            city: foundCity,
+            city: neighborhood ? `${foundCity} (${neighborhood})` : foundCity,
             price: price || 0,
             surface: surface || 0,
-            rooms: '?',
+            rooms: rooms,
             url: realUrl,
             date: date,
             img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80'
