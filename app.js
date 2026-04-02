@@ -341,12 +341,12 @@ const app = {
         });
 
         const titles = {
-            'alerts': 'Alertes SeLoger',
-            'map': 'Carte Immobilière',
-            'tour': 'Ma Tournée',
-            'favorites': 'Mes Favoris'
+            'alerts': 'IMMORADAR',
+            'map': 'Carte',
+            'tour': 'Tournée',
+            'favorites': 'Favoris'
         };
-        document.getElementById('view-title').textContent = titles[viewId] || 'ImmoRadar';
+        document.getElementById('view-title').textContent = titles[viewId] || 'IMMORADAR';
         
         this.state.activeView = viewId;
         this.render();
