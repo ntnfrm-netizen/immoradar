@@ -19,6 +19,20 @@
     <!-- Google Identity & API -->
     <script src="https://accounts.google.com/gsi/client" defer></script>
     <script src="https://apis.google.com/js/api.js" defer></script>
+    
+    <!-- Emergency Clear Script (Inline to bypass cache) -->
+    <script>
+        function emergencyClear() {
+            if (confirm("Voulez-vous réinitialiser l'application ? Cela va nettoyer tous les bugs d'affichage.")) {
+                localStorage.clear();
+                // Suppression SW
+                navigator.serviceWorker.getRegistrations().then(regs => {
+                    for(let reg of regs) reg.unregister();
+                });
+                window.location.href = window.location.origin + window.location.pathname + "?v=" + Date.now();
+            }
+        }
+    </script>
 </head>
 <body>
     <!-- App Container -->
@@ -27,7 +41,7 @@
         <header class="app-header">
             <div class="logo-container">
                 <img src="logo.png" alt="Logo" class="logo-img">
-                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v1.8.4</span></h1>
+                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v1.8.5</span></h1>
             </div>
             <div class="header-actions">
                 <div id="auth-container">
@@ -170,12 +184,12 @@
                 <i data-lucide="heart"></i>
                 <span>Favoris</span>
             </button>
-        <div style="text-align: center; padding: 20px 10px 80px 10px; opacity: 0.4; font-size: 0.7rem; color: white;" onclick="app.clearAppCache()">
-            Problème technique ? <span style="text-decoration: underline; color: #C5A021;">Nettoyer l'application</span>
+        <div style="text-align: center; padding: 20px 10px 80px 10px; opacity: 0.5; font-size: 0.7rem; color: white;" onclick="emergencyClear()">
+            Problème technique ? <span style="text-decoration: underline; color: #C5A021;">Nettoyer l'application (v1.8.5)</span>
         </div>
     </div>
 
-    <script src="app.js?v=1.8.4_ULTRA_CLEAN"></script>
+    <script src="app.js?v=1.8.5_EMERGENCY"></script>
     <script>
         // Init Lucide icons
         lucide.createIcons();
