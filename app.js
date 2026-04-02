@@ -268,17 +268,12 @@ const app = {
                 const toCache = this.state.listings.filter(l => l && l.source && l.source.includes('SeLoger'));
                 localStorage.setItem('immo_cache', JSON.stringify(toCache));
             } catch(e) {
-                this.logToUI('Erreur sauvegarde cache');
-            }
-        }
-    },
-
-    parseGmailMessage(msg, id) {
+                this.logToUI('Erreur sauvegarde cache'    parseGmailMessage(msg, id) {
         const snippet = msg.snippet || "";
         const body = this.getBody(msg.payload);
         const date = new Date(parseInt(msg.internalDate)).toISOString();
 
-        this.logToUI(`Parsing v1.5 - mail ${id.substring(0,5)}...`);
+        this.logToUI(`Parsing v1.6 - mail ${id.substring(0,5)}...`);
 
         // Nettoyage HTML et entités
         const cleanBody = body.replace(/<[^>]*>/g, ' ')
@@ -287,22 +282,27 @@ const app = {
                               .replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ')
                               .replace(/\s+/g, ' ');
 
+        this.logToUI(`TEXTE: ${cleanBody.substring(0, 40)}...`);
+
+        // Source de données combinée (Body + Snippet)
+        const combinedSource = cleanBody + " | SNIPPET: " + snippet;
+
         // 1. Extraction du Prix (ex: 850 000 €)
-        const priceMatch = cleanBody.match(/([0-9]{1,3}(?:\s[0-9]{3})+|[0-9]{4,10})\s*(?:€|EUR)/i);
+        const priceMatch = combinedSource.match(/([0-9]{1,3}(?:\s[0-9]{3})+|[0-9]{4,10})\s*(?:€|EUR)/i);
         const price = priceMatch ? parseInt(priceMatch[1].replace(/\s/g, '')) : 0;
 
         // 2. Extraction Combinée (ex: 5 pièces · 120 m²)
         let rooms = '?';
         let surface = 0;
-        const combinedMatch = cleanBody.match(/(\d+)\s*(?:pièce|pce)[s]?\s*·\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
+        const combinedMatch = combinedSource.match(/(\d+)\s*(?:pièce|pce)[s]?\s*[·-]\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
         
         if (combinedMatch) {
             rooms = combinedMatch[1];
             surface = parseFloat(combinedMatch[2].replace(',', '.'));
         } else {
             // Fallback si format séparé
-            const surfaceMatch = cleanBody.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
-            const roomsMatch = cleanBody.match(/(\d+)\s*(?:pièce|pce)[s]?/i);
+            const surfaceMatch = combinedSource.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
+            const roomsMatch = combinedSource.match(/(\d+)\s*(?:pièce|pce)[s]?/i);
             surface = surfaceMatch ? parseFloat(surfaceMatch[1].replace(',', '.')) : 0;
             rooms = roomsMatch ? roomsMatch[1] : '?';
         }
@@ -312,16 +312,16 @@ const app = {
         const realImg = imgMatch ? imgMatch[0] : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80';
 
         // 4. URL de l'annonce
-        const urlMatch = cleanBody.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
+        const urlMatch = combinedSource.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
         const realUrl = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
 
         let foundCity = "Sceaux"; 
         let neighborhood = "";
         
         for (let city of this.state.targetCities) {
-            if (cleanBody.toLowerCase().includes(city.toLowerCase()) || snippet.toLowerCase().includes(city.toLowerCase())) {
+            if (combinedSource.toLowerCase().includes(city.toLowerCase())) {
                 foundCity = city;
-                const neighborhoodMatch = cleanBody.match(new RegExp(`(?:quartier|secteur)?\s*([^,.\n·]{3,25}),\s*${city}`, 'i'));
+                const neighborhoodMatch = combinedSource.match(new RegExp(`(?:quartier|secteur)?\s*([^,.\n·-]{3,25}),\s*${city}`, 'i'));
                 if (neighborhoodMatch) neighborhood = neighborhoodMatch[1].trim();
                 break;
             }
@@ -342,12 +342,23 @@ const app = {
 
     getBody(payload) {
         let body = "";
-        if (payload.body.data) {
-            body = atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-        } else if (payload.parts) {
-            payload.parts.forEach(part => {
-                body += this.getBody(part);
-            });
+        try {
+            if (payload.body.data) {
+                const b64 = payload.body.data.replace(/-/g, '+').replace(/_/g, '/');
+                // Décodage UTF-8 sûr pour iPhone
+                body = decodeURIComponent(escape(window.atob(b64)));
+            } else if (payload.parts) {
+                payload.parts.forEach(part => {
+                    body += this.getBody(part);
+                });
+            }
+        } catch (e) {
+            // Fallback si decodeURIComponent échoue (cas des emails sans UTF-8)
+            try {
+                if (payload.body.data) {
+                    body = window.atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+                }
+            } catch(e2) {}
         }
         return body;
     },
@@ -452,7 +463,7 @@ const app = {
         };
         const titleEl = document.getElementById('view-title');
         if (titleEl) {
-            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.3</span>`;
+            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.6</span>`;
         }
         
         this.state.activeView = viewId;
@@ -564,4 +575,6 @@ const app = {
 };
 
 window.onload = function() {};
+document.addEventListener('DOMContentLoaded', () => app.init());
+{};
 document.addEventListener('DOMContentLoaded', () => app.init());
