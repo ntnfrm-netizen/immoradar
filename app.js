@@ -29,7 +29,7 @@ const app = {
     },
 
     async init() {
-        this.logToUI('Démarrage ImmoRadar v1.3...');
+        this.logToUI('Démarrage ImmoRadar v1.7...');
         this.bindEvents();
         this.loadLocalData();
         this.checkAuthResponseInUrl();
@@ -273,7 +273,7 @@ const app = {
         const body = this.getBody(msg.payload);
         const date = new Date(parseInt(msg.internalDate)).toISOString();
 
-        this.logToUI(`Parsing v1.6 - mail ${id.substring(0,5)}...`);
+        this.logToUI(`Parsing v1.7 - mail ${id.substring(0,5)}...`);
 
         // Nettoyage HTML et entités
         const cleanBody = body.replace(/<[^>]*>/g, ' ')
@@ -463,7 +463,7 @@ const app = {
         };
         const titleEl = document.getElementById('view-title');
         if (titleEl) {
-            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.6</span>`;
+            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.7</span>`;
         }
         
         this.state.activeView = viewId;
