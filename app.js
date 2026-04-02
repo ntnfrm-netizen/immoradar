@@ -1,6 +1,7 @@
 /**
  * IMMORADAR - Mobile App Logic
  * Designed for Marie-Astrid
+ * Version 1.7.1 - Fixed Syntax & UTF-8
  */
 
 const app = {
@@ -29,7 +30,7 @@ const app = {
     },
 
     async init() {
-        this.logToUI('Démarrage ImmoRadar v1.7...');
+        this.logToUI('Démarrage ImmoRadar v1.7.1...');
         this.bindEvents();
         this.loadLocalData();
         this.checkAuthResponseInUrl();
@@ -51,15 +52,14 @@ const app = {
         if (addForm) {
             addForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                this.handleManualAdd();
+                this.handleManualAdd(e);
             });
         }
     },
 
     // --- Google Auth ---
     initGoogleAuth() {
-        this.logToUI('Initialisation GAPI/GIS...');
-        // Init GAPI
+        this.logToUI('Initialisation GAPI...');
         window.gapiInit = () => {
             this.logToUI('Chargement Client GAPI...');
             gapi.load('client', async () => {
@@ -77,14 +77,12 @@ const app = {
             });
         };
 
-        // Trigger loading if scripts already loaded
         if (typeof gapi !== 'undefined') window.gapiInit();
         else this.logToUI('Attente script GAPI...');
     },
 
     handleAuthClick() {
         this.logToUI('Tentative de connexion...');
-        // Utilisation du mode REDIRECT pour éviter les problèmes de cookies/popups sur iOS
         const rootUrl = window.location.origin + window.location.pathname;
         const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
             `client_id=${this.config.CLIENT_ID}&` +
@@ -108,7 +106,6 @@ const app = {
                 expires_in: params.get('expires_in')
             };
             this.handleAuthResponse(resp);
-            // Nettoyage de l'URL pour ne pas garder le token visible
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     },
@@ -116,7 +113,6 @@ const app = {
     handleLogoutClick() {
         if (this.state.tokenResponse) {
             this.logToUI('Déconnexion...');
-            // Tentative de revoke si possible, sinon simple déconnexion locale
             try {
                 fetch(`https://oauth2.googleapis.com/revoke?token=${this.state.tokenResponse.access_token}`, { method: 'POST', mode: 'no-cors' });
             } catch(e) {}
@@ -138,7 +134,6 @@ const app = {
         document.getElementById('login-button').classList.add('hidden');
         document.getElementById('logout-button').classList.remove('hidden');
         
-        // On attend que GAPI soit prêt avant de rafraîchir
         const checkGapi = setInterval(() => {
             if (this.state.gapiLoaded) {
                 clearInterval(checkGapi);
@@ -155,7 +150,6 @@ const app = {
             document.getElementById('login-button').classList.add('hidden');
             document.getElementById('logout-button').classList.remove('hidden');
             
-            // Rafraîchissement automatique au démarrage
             if (this.state.gapiLoaded) {
                 this.refreshData();
             }
@@ -164,14 +158,20 @@ const app = {
 
     // --- Data Management ---
     loadLocalData() {
-        this.state.listings = [...(JSON.parse(localStorage.getItem('immo_cache') || '[]')), ...this.state.manualAdditions];
+        try {
+            const cached = JSON.parse(localStorage.getItem('immo_cache') || '[]');
+            const manual = JSON.parse(localStorage.getItem('immo_manual') || '[]');
+            this.state.listings = [...cached, ...manual];
+        } catch(e) {
+            this.logToUI('Erreur chargement données locales');
+            this.state.listings = [];
+        }
     },
 
     async refreshData() {
         if (!this.state.tokenResponse) return;
         this.logToUI('Lancement synchronisation...');
 
-        // Attente si GAPI n'est pas encore prêt (max 5s)
         let gapiWait = 0;
         while (!this.state.gapiLoaded && gapiWait < 50) {
             await new Promise(r => setTimeout(r, 100));
@@ -187,7 +187,6 @@ const app = {
         if (btn) btn.classList.add('animate-spin');
 
         try {
-            // Configuration manuelle du token
             gapi.client.setToken({ access_token: this.state.tokenResponse.access_token });
 
             if (!gapi.client.gmail) {
@@ -196,7 +195,6 @@ const app = {
             }
 
             this.logToUI('Recherche mails Gmail...');
-            // Recherche plus large pour ne rien rater (SeLoger utilise plusieurs adresses)
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
                 'q': 'from:seloger.com after:7d'
@@ -207,7 +205,6 @@ const app = {
             
             if (messages.length === 0) {
                 this.logToUI("Aucun mail SeLoger ces 7 derniers jours.");
-                // On vide le chargement
                 const container = document.getElementById('alerts-list');
                 if (container) container.innerHTML = '<div class="empty-state"><p>Aucun mail SeLoger récent trouvé.</p></div>';
             } else {
@@ -234,12 +231,9 @@ const app = {
         this.logToUI(`Analyse de ${messages.length} messages...`);
         const newListings = [];
         const existingIds = new Set(this.state.listings.map(l => l.id));
-
-        // Limitation à 10 messages pour éviter de saturer le mobile lors du premier fetch
         const itemsToProcess = messages.slice(0, 10);
 
         for (const msg of itemsToProcess) {
-            // On re-scanne si l'annonce n'existe pas ou si elle a un prix nul (erreur de parsing précédente)
             const existing = this.state.listings.find(l => l.id === msg.id);
             if (existing && existing.price > 0 && existing.source.includes('Gmail')) continue;
 
@@ -251,7 +245,6 @@ const app = {
                 });
 
                 const parsed = this.parseGmailMessage(detail.result, msg.id);
-                // Le filtre est déjà fait dans parseGmailMessage, on est plus large ici
                 if (parsed) {
                     newListings.push(parsed);
                 }
@@ -263,17 +256,20 @@ const app = {
 
         if (newListings.length > 0) {
             this.logToUI(`${newListings.length} nouveaux biens trouvés !`);
-                    this.state.listings = [...newListings, ...this.state.listings];
+            this.state.listings = [...newListings, ...this.state.listings];
             try {
                 const toCache = this.state.listings.filter(l => l && l.source && l.source.includes('SeLoger'));
                 localStorage.setItem('immo_cache', JSON.stringify(toCache));
             } catch(e) {
-                this.logToUI('Erreur sauvegarde cache'    parseGmailMessage(msg, id) {
+                this.logToUI('Erreur sauvegarde cache');
+            }
+        }
+    },
+
+    parseGmailMessage(msg, id) {
         const snippet = msg.snippet || "";
         const body = this.getBody(msg.payload);
         const date = new Date(parseInt(msg.internalDate)).toISOString();
-
-        this.logToUI(`Parsing v1.7 - mail ${id.substring(0,5)}...`);
 
         // Nettoyage HTML et entités
         const cleanBody = body.replace(/<[^>]*>/g, ' ')
@@ -282,9 +278,9 @@ const app = {
                               .replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ')
                               .replace(/\s+/g, ' ');
 
+        this.logToUI(`Parsing - mail ${id.substring(0,5)}...`);
         this.logToUI(`TEXTE: ${cleanBody.substring(0, 40)}...`);
 
-        // Source de données combinée (Body + Snippet)
         const combinedSource = cleanBody + " | SNIPPET: " + snippet;
 
         // 1. Extraction du Prix (ex: 850 000 €)
@@ -300,18 +296,17 @@ const app = {
             rooms = combinedMatch[1];
             surface = parseFloat(combinedMatch[2].replace(',', '.'));
         } else {
-            // Fallback si format séparé
             const surfaceMatch = combinedSource.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
             const roomsMatch = combinedSource.match(/(\d+)\s*(?:pièce|pce)[s]?/i);
             surface = surfaceMatch ? parseFloat(surfaceMatch[1].replace(',', '.')) : 0;
             rooms = roomsMatch ? roomsMatch[1] : '?';
         }
 
-        // 3. Extraction Image (URL SeLoger v.seloger.com)
+        // 3. Image
         const imgMatch = body.match(/https?:\/\/v\.seloger\.com\/[^"'\s>]+\.(?:jpg|png|jpeg)/i);
         const realImg = imgMatch ? imgMatch[0] : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80';
 
-        // 4. URL de l'annonce
+        // 4. URL
         const urlMatch = combinedSource.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
         const realUrl = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
 
@@ -345,7 +340,6 @@ const app = {
         try {
             if (payload.body.data) {
                 const b64 = payload.body.data.replace(/-/g, '+').replace(/_/g, '/');
-                // Décodage UTF-8 sûr pour iPhone
                 body = decodeURIComponent(escape(window.atob(b64)));
             } else if (payload.parts) {
                 payload.parts.forEach(part => {
@@ -353,7 +347,6 @@ const app = {
                 });
             }
         } catch (e) {
-            // Fallback si decodeURIComponent échoue (cas des emails sans UTF-8)
             try {
                 if (payload.body.data) {
                     body = window.atob(payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
@@ -396,43 +389,6 @@ const app = {
         this.render();
     },
 
-    parseEmail() {
-        const content = document.getElementById('email-content').value;
-        if (!content) return;
-
-        const priceMatch = content.match(/([0-9\s]+)[€|EUR]/i);
-        const surfaceMatch = content.match(/([0-9\s,]+)[m²|m2]/i);
-        
-        let foundCity = "Sceaux";
-        for(let city of this.state.targetCities) {
-            if (content.toLowerCase().includes(city.toLowerCase())) {
-                foundCity = city;
-                break;
-            }
-        }
-
-        const price = priceMatch ? parseInt(priceMatch[1].replace(/\s/g, '')) : 500000;
-        const surface = surfaceMatch ? parseInt(surfaceMatch[1].replace(/\s/g, '').replace(',', '.')) : 50;
-
-        const newEntry = {
-            id: 'email-' + Date.now(),
-            source: 'SeLoger (Auto)',
-            city: foundCity,
-            price: price,
-            surface: surface,
-            rooms: '?',
-            url: 'https://www.seloger.com',
-            date: new Date().toISOString(),
-            img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80'
-        };
-
-        this.state.listings.unshift(newEntry);
-        this.closeModal('import-modal');
-        document.getElementById('email-content').value = '';
-        this.render();
-        this.logToUI(`Annonce détectée !`);
-    },
-
     toggleFavorite(id) {
         const index = this.state.favorites.indexOf(id);
         if (index > -1) {
@@ -463,7 +419,7 @@ const app = {
         };
         const titleEl = document.getElementById('view-title');
         if (titleEl) {
-            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.7</span>`;
+            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.7.1</span>`;
         }
         
         this.state.activeView = viewId;
@@ -524,7 +480,8 @@ const app = {
 
     setTourFilter(days) {
         this.state.tourDaysFilter = days;
-        document.querySelectorAll('.tour-config .chip').forEach(c => {
+        const chips = document.querySelectorAll('.tour-config .chip');
+        chips.forEach(c => {
             c.classList.remove('active');
             if (c.textContent.includes(days === 7 ? '7 jours' : days === 14 ? '2 semaines' : '1 mois')) {
                 c.classList.add('active');
@@ -574,7 +531,4 @@ const app = {
     }
 };
 
-window.onload = function() {};
-document.addEventListener('DOMContentLoaded', () => app.init());
-{};
 document.addEventListener('DOMContentLoaded', () => app.init());
