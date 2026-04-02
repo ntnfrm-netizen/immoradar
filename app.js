@@ -215,12 +215,23 @@ const app = {
         const body = this.getBody(msg.payload);
         const date = new Date(parseInt(msg.internalDate)).toISOString();
 
-        const priceMatch = snippet.match(/([0-9\s]+)[€|EUR]/i) || body.match(/([0-9\s]+)[€|EUR]/i);
-        const surfaceMatch = snippet.match(/([0-9\s,]+)[m²|m2]/i) || body.match(/([0-9\s,]+)[m²|m2]/i);
+        // Nettoyage Unicode pour les prix/surfaces (espaces insécables, etc.)
+        const cleanBody = body.replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ');
+
+        // Regex plus robustes
+        const priceRegex = /([0-9\s ]+)(?:€|EUR)/i;
+        const surfaceRegex = /([0-9\s ,.]+)\s*(?:m²|m2)/i;
         
+        const priceMatch = cleanBody.match(priceRegex) || snippet.match(priceRegex);
+        const surfaceMatch = cleanBody.match(surfaceRegex) || snippet.match(surfaceRegex);
+        
+        // Extraction de l'URL réelle SeLoger (cherche le premier lien d'annonce)
+        const urlMatch = cleanBody.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
+        const realUrl = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
+
         let foundCity = "";
         for (let city of this.state.targetCities) {
-            if (snippet.includes(city) || body.includes(city)) {
+            if (cleanBody.toLowerCase().includes(city.toLowerCase()) || snippet.toLowerCase().includes(city.toLowerCase())) {
                 foundCity = city;
                 break;
             }
@@ -228,17 +239,17 @@ const app = {
 
         if (!foundCity) return null;
 
-        const price = priceMatch ? parseInt(priceMatch[1].replace(/\s/g, '')) : 0;
-        const surface = surfaceMatch ? parseInt(surfaceMatch[1].replace(/\s/g, '').replace(',', '.')) : 0;
+        const price = priceMatch ? parseInt(priceMatch[1].replace(/[\s ]/g, '')) : 0;
+        const surface = surfaceMatch ? parseFloat(surfaceMatch[1].replace(/[\s ]/g, '').replace(',', '.')) : 0;
 
         return {
             id: id,
             source: 'SeLoger (Gmail)',
             city: foundCity,
-            price: price,
-            surface: surface,
+            price: price || 0,
+            surface: surface || 0,
             rooms: '?',
-            url: 'https://seloger.com',
+            url: realUrl,
             date: date,
             img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80'
         };
