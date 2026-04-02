@@ -29,7 +29,7 @@ const app = {
     },
 
     async init() {
-        this.logToUI('Démarrage ImmoRadar v1.2...');
+        this.logToUI('Démarrage ImmoRadar v1.3...');
         this.bindEvents();
         this.loadLocalData();
         this.checkAuthResponseInUrl();
@@ -126,7 +126,7 @@ const app = {
             document.getElementById('login-button').classList.remove('hidden');
             document.getElementById('logout-button').classList.add('hidden');
             this.logToUI('Déconnecté.');
-            alert("Déconnexion réussie.");
+            this.logToUI("Déconnexion réussie.");
         }
     },
 
@@ -179,8 +179,8 @@ const app = {
         }
 
         if (!this.state.gapiLoaded) {
-            this.logToUI('Échec : GAPI non chargé après 5s.');
-            return alert("Le service de connexion Google met trop de temps à répondre. Vérifiez votre connexion internet.");
+            this.logToUI('GAPI toujours en attente...');
+            return;
         }
 
         const btn = document.querySelector('[onclick="app.refreshData()"] i');
@@ -192,8 +192,7 @@ const app = {
 
             if (!gapi.client.gmail) {
                 this.logToUI('Échec : Client Gmail non trouvé.');
-                console.error("Gmail Client non initialisé");
-                return alert("Erreur d'initialisation Gmail. Veuillez recharger la page.");
+                return;
             }
 
             this.logToUI('Recherche mails Gmail...');
@@ -207,7 +206,7 @@ const app = {
             this.logToUI(`${messages.length} mails trouvés.`);
             
             if (messages.length === 0) {
-                alert("Aucun mail SeLoger reçu ces 7 derniers jours sur ce compte Gmail.");
+                this.logToUI("Aucun mail SeLoger ces 7 derniers jours.");
                 // On vide le chargement
                 const container = document.getElementById('alerts-list');
                 if (container) container.innerHTML = '<div class="empty-state"><p>Aucun mail SeLoger récent trouvé.</p></div>';
@@ -216,17 +215,18 @@ const app = {
             }
         } catch (err) {
             this.logToUI(`Erreur Gmail API: ${err.status || err}`);
-            console.error('Erreur Gmail API:', err);
             if (err.status === 401) {
-                alert("Session expirée, veuillez vous reconnecter.");
+                this.logToUI("Session expirée, reconnexion...");
                 this.handleAuthClick();
-            } else {
-                alert("Erreur lors de la récupération des mails. Vérifiez votre connexion.");
             }
         } finally {
             if (btn) btn.classList.remove('animate-spin');
-            this.render();
-            this.logToUI('Synchro terminée.');
+            try {
+                this.render();
+                this.logToUI('Mise à jour affichage terminée.');
+            } catch(e) {
+                this.logToUI('Erreur lors du rendu final.');
+            }
         }
     },
 
@@ -264,8 +264,12 @@ const app = {
         if (newListings.length > 0) {
             this.logToUI(`${newListings.length} nouveaux biens trouvés !`);
             this.state.listings = [...newListings, ...this.state.listings];
-            localStorage.setItem('immo_cache', JSON.stringify(this.state.listings.filter(l => l.source.includes('SeLoger'))));
-            alert(`${newListings.length} nouvelles annonces détectées !`);
+            try {
+                const toCache = this.state.listings.filter(l => l && l.source && l.source.includes('SeLoger'));
+                localStorage.setItem('immo_cache', JSON.stringify(toCache));
+            } catch(e) {
+                this.logToUI('Erreur sauvegarde cache');
+            }
         }
     },
 
@@ -340,7 +344,10 @@ const app = {
         const surface = document.getElementById('add-surface').value;
         const url = document.getElementById('add-url').value;
 
-        if (!city || !price || !surface) return alert("Veuillez remplir les champs obligatoires.");
+        if (!city || !price || !surface) {
+            this.logToUI("Erreur : Champs obligatoires manquants.");
+            return;
+        }
 
         const newEntry = {
             id: 'manual-' + Date.now(),
@@ -365,7 +372,7 @@ const app = {
 
     parseEmail() {
         const content = document.getElementById('email-content').value;
-        if (!content) return alert("Veuillez coller le contenu du mail.");
+        if (!content) return;
 
         const priceMatch = content.match(/([0-9\s]+)[€|EUR]/i);
         const surfaceMatch = content.match(/([0-9\s,]+)[m²|m2]/i);
@@ -397,7 +404,7 @@ const app = {
         this.closeModal('import-modal');
         document.getElementById('email-content').value = '';
         this.render();
-        alert(`Annonce détectée !`);
+        this.logToUI(`Annonce détectée !`);
     },
 
     toggleFavorite(id) {
@@ -430,7 +437,7 @@ const app = {
         };
         const titleEl = document.getElementById('view-title');
         if (titleEl) {
-            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.2</span>`;
+            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.3</span>`;
         }
         
         this.state.activeView = viewId;
@@ -503,7 +510,10 @@ const app = {
     generateRoute() {
         const threshold = Date.now() - (this.state.tourDaysFilter * 86400000);
         const tourItems = this.state.listings.filter(l => new Date(l.date).getTime() > threshold);
-        if (tourItems.length === 0) return alert("Rien à visiter !");
+        if (tourItems.length === 0) {
+            this.logToUI("Erreur : Aucun bien à visiter.");
+            return;
+        }
         const base = "https://www.google.com/maps/dir/";
         const stops = tourItems.map(item => encodeURIComponent(`${item.city}, France`)).join('/');
         window.open(base + stops, '_blank');
@@ -519,7 +529,7 @@ const app = {
                     <span class="card-badge">${item.city}</span>
                 </div>
                 <div class="card-content">
-                    <div class="card-price">${item.price.toLocaleString()} €</div>
+                    <div class="card-price">${(item.price || 0).toLocaleString()} €</div>
                     <div class="card-info">
                         <span>${item.surface} m² | ${item.rooms} pièces</span>
                         <span>${dateStr}</span>
