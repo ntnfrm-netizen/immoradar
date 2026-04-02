@@ -158,11 +158,9 @@ const app = {
     async processMessages(messages) {
         const newListings = [];
         const items = messages.slice(0, 15);
+        this.logToUI(`Analyse de ${items.length} mails...`);
 
         for (const msg of items) {
-            const existing = this.state.listings.find(l => l.id === msg.id);
-            if (existing && existing.price > 0) continue;
-
             try {
                 const detail = await gapi.client.gmail.users.messages.get({
                     'userId': 'me',
@@ -170,77 +168,86 @@ const app = {
                     'format': 'full'
                 });
                 const parsed = this.parseGmailMessage(detail.result, msg.id);
-                if (parsed) newListings.push(parsed);
-            } catch (e) {}
+                if (parsed) {
+                    newListings.push(parsed);
+                    this.logToUI(`OK: ${parsed.price}€ - ${parsed.city}`);
+                }
+            } catch (e) {
+                this.logToUI(`Erreur mail ${msg.id.substring(0,5)}`);
+            }
         }
 
         if (newListings.length > 0) {
             this.state.listings = [...newListings, ...this.state.listings];
             const toCache = this.state.listings.filter(l => l.source.includes('SeLoger'));
             localStorage.setItem('immo_cache', JSON.stringify(toCache));
+        } else {
+            this.logToUI("Aucune annonce valide trouvée.");
         }
     },
 
     parseGmailMessage(msg, id) {
         const headers = msg.payload.headers;
-        const subject = headers.find(h => h.name === 'Subject')?.value || "";
+        const subject = headers.find(h => h.name === 'Subject')?.value || "Sans titre";
         const body = this.getBody(msg.payload);
         
-        // Filtre de sécurité
-        if (subject.toLowerCase().includes("confirmation") || subject.toLowerCase().includes("bienvenue") || subject.toLowerCase().includes("compte")) {
+        this.logToUI(`Mail: ${subject.substring(0, 20)}...`);
+
+        // Filtre de sécurité assoupli
+        if (subject.toLowerCase().includes("confirmation") || subject.toLowerCase().includes("bienvenue")) {
+            this.logToUI("Ignoré (Mail service)");
             return null;
         }
 
         const cleanBody = body.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&middot;/g, '·').replace(/\s+/g, ' ');
         const snippet = (msg.snippet || "").replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
-        const combined = cleanBody + " | SNIPPET: " + snippet;
+        const combined = (cleanBody + " " + snippet).toLowerCase();
 
-        // 1. Prix (Regex chirurgicale)
-        // On cherche un nombre suivi de € qui n'est PAS collé à un chiffre à gauche
-        // On teste d'abord dans le snippet qui est plus propre
-        let priceMatch = snippet.match(/(?:^|\D)([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
-        if (!priceMatch) {
-            priceMatch = cleanBody.match(/(?:^|\D)([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
-        }
+        // 1. Prix (Plus large)
+        let price = 0;
+        const priceMatch = (cleanBody + " " + snippet).match(/(?:\s|^)([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
         
-        let price = priceMatch ? parseInt(priceMatch[1].replace(/\s/g, '')) : 0;
-
-        // Sécurité anti-prix aberrant (ex: 9 850 000€ pour Sceaux)
-        if (price > 5000000) {
-            // On essaie de recouper avec une regex plus restrictive
-            const secondaryMatch = combined.match(/(?:Prix|vendre|vendu)\s*[:]?\s*([0-9]{1,3}(?:\s[0-9]{3})*)\s*(?:€|EUR)/i);
-            if (secondaryMatch) price = parseInt(secondaryMatch[1].replace(/\s/g, ''));
-            else if (price > 9000000) price = parseInt(price.toString().substring(1)); // On retire le 9 intrus
+        if (priceMatch) {
+            price = parseInt(priceMatch[1].replace(/\s/g, ''));
+            // Protection anti-vol de chiffre (ex: si le prix > 5M on vérifie Sceaux)
+            if (price > 4000000 && (combined.includes("sceaux") || combined.includes("92"))) {
+                 const strPrice = price.toString();
+                 if (strPrice.startsWith('9')) price = parseInt(strPrice.substring(1));
+                 if (price > 4000000) price = 0; // Sécurité si toujours trop haut
+            }
         }
 
         // 2. Surface & Pièces
         let rooms = '?';
         let surface = 0;
-        const combinedMatch = combined.match(/(\d+)\s*(?:pièce|pce)[s]?\s*[·-]\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
+        const combinedMatch = cleanBody.match(/(\d+)\s*(?:pièce|pce)[s]?\s*[·-]\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
         if (combinedMatch) {
             rooms = combinedMatch[1];
             surface = parseFloat(combinedMatch[2].replace(',', '.'));
         } else {
-            const sMatch = combined.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
-            const rMatch = combined.match(/(\d+)\s*(?:pièce|pce)[s]?/i);
+            const sMatch = cleanBody.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
+            const rMatch = cleanBody.match(/(\d+)\s*(?:pièce|pce)[s]?/i);
             surface = sMatch ? parseFloat(sMatch[1].replace(',', '.')) : 0;
             rooms = rMatch ? rMatch[1] : '?';
         }
 
-        if (price === 0 && surface === 0) return null;
+        // Si on n'a absolument rien trouvé, on ignore
+        if (price === 0 && surface === 0) {
+            this.logToUI("Pas d'infos trouvées.");
+            return null;
+        }
 
         const imgMatch = body.match(/https?:\/\/v\.seloger\.com\/[^"'\s>]+\.(?:jpg|png|jpeg)/i);
         const img = imgMatch ? imgMatch[0] : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80';
         
-        const urlMatch = combined.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
+        const urlMatch = cleanBody.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
         const url = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
 
         let city = "Sceaux";
-        for (let c of this.state.targetCities) {
-            if (combined.toLowerCase().includes(c.toLowerCase())) {
+        const cities = ['Sceaux', 'Bourg-la-Reine', 'Antony', 'Clamart'];
+        for (let c of cities) {
+            if (combined.includes(c.toLowerCase())) {
                 city = c;
-                const nMatch = combined.match(new RegExp(`(?:quartier|secteur)?\s*([^,.\n·-]{3,25}),\s*${c}`, 'i'));
-                if (nMatch) city += ` (${nMatch[1].trim()})`;
                 break;
             }
         }
