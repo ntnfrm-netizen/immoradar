@@ -29,7 +29,7 @@ const app = {
     },
 
     async init() {
-        this.logToUI('Démarrage ImmoRadar v1.1...');
+        this.logToUI('Démarrage ImmoRadar v1.2...');
         this.bindEvents();
         this.loadLocalData();
         this.checkAuthResponseInUrl();
@@ -239,7 +239,9 @@ const app = {
         const itemsToProcess = messages.slice(0, 10);
 
         for (const msg of itemsToProcess) {
-            if (existingIds.has(msg.id)) continue;
+            // On re-scanne si l'annonce n'existe pas ou si elle a un prix nul (erreur de parsing précédente)
+            const existing = this.state.listings.find(l => l.id === msg.id);
+            if (existing && existing.price > 0 && existing.source.includes('Gmail')) continue;
 
             try {
                 const detail = await gapi.client.gmail.users.messages.get({
@@ -428,7 +430,7 @@ const app = {
         };
         const titleEl = document.getElementById('view-title');
         if (titleEl) {
-            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.1</span>`;
+            titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.2</span>`;
         }
         
         this.state.activeView = viewId;
