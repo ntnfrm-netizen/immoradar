@@ -170,16 +170,8 @@ const app = {
                 });
                 const parsed = this.parseGmailMessage(detail.result, msg.id);
                 
-                if (parsed) {
-                    const isDuplicate = newListings.concat(this.state.listings).some(l => 
-                        l.price === parsed.price && 
-                        l.surface === parsed.surface && 
-                        l.city === parsed.city
-                    );
-                    
-                    if (!isDuplicate) {
-                        newListings.push(parsed);
-                    }
+                if (parsed && parsed.price > 0) {
+                    newListings.push(parsed);
                 }
             } catch (e) {
                 console.error(`Erreur mail`, e);
