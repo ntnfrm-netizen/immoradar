@@ -278,23 +278,40 @@ const app = {
         const body = this.getBody(msg.payload);
         const date = new Date(parseInt(msg.internalDate)).toISOString();
 
-        this.logToUI(`Parsing mail ${id.substring(0,5)}...`);
-        this.logToUI(`Body start: ${body.substring(0, 50)}...`);
+        this.logToUI(`Parsing v1.5 - mail ${id.substring(0,5)}...`);
 
-        // Nettoyage agressif des caractères invisibles et balises HTML résiduelles
+        // Nettoyage HTML et entités
         const cleanBody = body.replace(/<[^>]*>/g, ' ')
                               .replace(/&nbsp;/g, ' ')
+                              .replace(/&middot;/g, '·')
                               .replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ')
                               .replace(/\s+/g, ' ');
 
-        // Regex améliorées
-        // Prix : On cherche un gros nombre (min 4 chiffres) suivi de €
+        // 1. Extraction du Prix (ex: 850 000 €)
         const priceMatch = cleanBody.match(/([0-9]{1,3}(?:\s[0-9]{3})+|[0-9]{4,10})\s*(?:€|EUR)/i);
-        // Surface : On cherche un nombre suivi de m² ou m2
-        const surfaceMatch = cleanBody.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
-        // Pièces : On cherche "X pièces" ou "X pces"
-        const roomsMatch = cleanBody.match(/(\d+)\s*(?:pièce|pce|p\.)/i);
+        const price = priceMatch ? parseInt(priceMatch[1].replace(/\s/g, '')) : 0;
+
+        // 2. Extraction Combinée (ex: 5 pièces · 120 m²)
+        let rooms = '?';
+        let surface = 0;
+        const combinedMatch = cleanBody.match(/(\d+)\s*(?:pièce|pce)[s]?\s*·\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
         
+        if (combinedMatch) {
+            rooms = combinedMatch[1];
+            surface = parseFloat(combinedMatch[2].replace(',', '.'));
+        } else {
+            // Fallback si format séparé
+            const surfaceMatch = cleanBody.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
+            const roomsMatch = cleanBody.match(/(\d+)\s*(?:pièce|pce)[s]?/i);
+            surface = surfaceMatch ? parseFloat(surfaceMatch[1].replace(',', '.')) : 0;
+            rooms = roomsMatch ? roomsMatch[1] : '?';
+        }
+
+        // 3. Extraction Image (URL SeLoger v.seloger.com)
+        const imgMatch = body.match(/https?:\/\/v\.seloger\.com\/[^"'\s>]+\.(?:jpg|png|jpeg)/i);
+        const realImg = imgMatch ? imgMatch[0] : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80';
+
+        // 4. URL de l'annonce
         const urlMatch = cleanBody.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
         const realUrl = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
 
@@ -304,27 +321,22 @@ const app = {
         for (let city of this.state.targetCities) {
             if (cleanBody.toLowerCase().includes(city.toLowerCase()) || snippet.toLowerCase().includes(city.toLowerCase())) {
                 foundCity = city;
-                // Extraction du quartier type "Sceaux, Parc de Sceaux"
-                const neighborhoodMatch = cleanBody.match(new RegExp(`(?:quartier|secteur)?\s*([^,.\n]{3,20}),\s*${city}`, 'i'));
+                const neighborhoodMatch = cleanBody.match(new RegExp(`(?:quartier|secteur)?\s*([^,.\n·]{3,25}),\s*${city}`, 'i'));
                 if (neighborhoodMatch) neighborhood = neighborhoodMatch[1].trim();
                 break;
             }
         }
 
-        const price = priceMatch ? parseInt(priceMatch[1].replace(/\s/g, '')) : 0;
-        const surface = surfaceMatch ? parseFloat(surfaceMatch[1].replace(',', '.')) : 0;
-        const rooms = roomsMatch ? roomsMatch[1] : '?';
-
         return {
             id: id,
             source: 'SeLoger (Gmail)',
             city: neighborhood ? `${foundCity} (${neighborhood})` : foundCity,
-            price: price || 0,
-            surface: surface || 0,
+            price: price,
+            surface: surface,
             rooms: rooms,
             url: realUrl,
             date: date,
-            img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80'
+            img: realImg
         };
     },
 
