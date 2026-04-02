@@ -212,15 +212,20 @@ const app = {
         for (const msg of itemsToProcess) {
             if (existingIds.has(msg.id)) continue;
 
-            const detail = await gapi.client.gmail.users.messages.get({
-                'userId': 'me',
-                'id': msg.id,
-                'format': 'full'
-            });
+            try {
+                const detail = await gapi.client.gmail.users.messages.get({
+                    'userId': 'me',
+                    'id': msg.id,
+                    'format': 'full'
+                });
 
-            const parsed = this.parseGmailMessage(detail.result, msg.id);
-            if (parsed && this.state.targetCities.includes(parsed.city)) {
-                newListings.push(parsed);
+                const parsed = this.parseGmailMessage(detail.result, msg.id);
+                if (parsed && this.state.targetCities.includes(parsed.city)) {
+                    newListings.push(parsed);
+                }
+            } catch (err) {
+                console.warn(`Erreur lors de la lecture du message ${msg.id}:`, err);
+                continue; // On passe au message suivant
             }
         }
 
