@@ -159,7 +159,6 @@ const app = {
         const items = messages.slice(0, 15);
 
         for (const msg of items) {
-            // Vérifier si le message existe déjà dans le cache par ID
             const existing = this.state.listings.find(l => l.id === msg.id);
             if (existing) continue;
 
@@ -172,14 +171,13 @@ const app = {
                 const parsed = this.parseGmailMessage(detail.result, msg.id);
                 
                 if (parsed) {
-                    // Prévenir les doublons par contenu (même prix, surface, ville)
-                    const duplicate = newListings.concat(this.state.listings).find(l => 
+                    const isDuplicate = newListings.concat(this.state.listings).some(l => 
                         l.price === parsed.price && 
                         l.surface === parsed.surface && 
                         l.city === parsed.city
                     );
                     
-                    if (!duplicate) {
+                    if (!isDuplicate) {
                         newListings.push(parsed);
                     }
                 }
@@ -189,7 +187,7 @@ const app = {
         }
 
         if (newListings.length > 0) {
-            this.state.listings = [...newListings, ...this.state.listings];
+            this.state.listings = this.deduplicate([...newListings, ...this.state.listings]);
             const toCache = this.state.listings.filter(l => l.source.includes('SeLoger'));
             localStorage.setItem('immo_cache', JSON.stringify(toCache));
         }
@@ -200,7 +198,6 @@ const app = {
         const subject = headers.find(h => h.name === 'Subject')?.value || "Sans titre";
         const body = this.getBody(msg.payload);
         
-        // Filtre de sécurité
         if (subject.toLowerCase().includes("confirmation") || subject.toLowerCase().includes("bienvenue")) {
             return null;
         }
@@ -209,21 +206,18 @@ const app = {
         const snippet = (msg.snippet || "").replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
         const combined = (cleanBody + " " + snippet).toLowerCase();
 
-        // 1. Prix (Regex chirurgicale)
         let price = 0;
         const priceMatch = (cleanBody + " " + snippet).match(/(?:\s|^)([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
         
         if (priceMatch) {
             price = parseInt(priceMatch[1].replace(/\s/g, ''));
-            // Protection anti-vol de chiffre (ex: si le prix > 5M on vérifie Sceaux)
             if (price > 4000000 && (combined.includes("sceaux") || combined.includes("92"))) {
                  const strPrice = price.toString();
                  if (strPrice.startsWith('9')) price = parseInt(strPrice.substring(1));
-                 if (price > 4000000) price = 0; // Sécurité si toujours trop haut
+                 if (price > 4000000) price = 0;
             }
         }
 
-        // 2. Surface & Pièces
         let rooms = '?';
         let surface = 0;
         const combinedMatch = cleanBody.match(/(\d+)\s*(?:pièce|pce)[s]?\s*[·-]\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
@@ -237,10 +231,7 @@ const app = {
             rooms = rMatch ? rMatch[1] : '?';
         }
 
-        // Si on n'a absolument rien trouvé, on ignore
-        if (price === 0 && surface === 0) {
-            return null;
-        }
+        if (price === 0 && surface === 0) return null;
 
         const imgMatch = body.match(/https?:\/\/v\.seloger\.com\/[^"'\s>]+\.(?:jpg|png|jpeg)/i);
         const img = imgMatch ? imgMatch[0] : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80';
