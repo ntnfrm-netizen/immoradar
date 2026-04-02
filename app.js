@@ -7,7 +7,7 @@ const app = {
     // Configuration Google
     config: {
         CLIENT_ID: '76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com',
-        API_KEY: '', // À REMPLIR pour une intégration complète
+        API_KEY: 'AIzaSyBQ-ACsyDEYCzRnrFb_AYhTzUi4SpSczHo', 
         DISCOVERY_DOCS: ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"],
         SCOPES: 'https://www.googleapis.com/auth/gmail.readonly'
     },
