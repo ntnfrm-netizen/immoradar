@@ -307,8 +307,33 @@ const app = {
     renderList(id, items) {
         const container = document.getElementById(id);
         if (!container) return;
-        if (items.length === 0) container.innerHTML = '<div class="empty-state"><p>Aucun bien trouvé.</p></div>';
-        else container.innerHTML = items.map(item => this.createCardHTML(item)).join('');
+
+        if (!this.state.user) {
+            container.innerHTML = `
+                <div class="empty-state" style="padding-top: 50px;">
+                    <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 20px; border-radius: 20px;">
+                        <i data-lucide="user-plus" style="width: 40px; height: 40px; color: #C5A021; margin-bottom: 15px;"></i>
+                        <h3 style="color: white; margin-bottom: 10px;">Connexion requise</h3>
+                        <p style="color: #94A3B8; font-size: 0.9rem; margin-bottom: 20px;">Connectez votre compte Google pour voir vos alertes SeLoger.</p>
+                        <button onclick="app.handleAuthClick()" style="background: #C5A021; color: #1A2E35; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 600;">Se connecter</button>
+                    </div>
+                </div>`;
+            lucide.createIcons();
+            return;
+        }
+
+        if (items.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>Aucun bien trouvé pour le moment.</p>
+                    <button onclick="app.refreshData()" style="margin-top: 10px; opacity: 0.5; background: none; border: 1px solid white; color: white; padding: 10px; border-radius: 10px;">Actualiser 🔄</button>
+                </div>`;
+        } else {
+            // Tri par date décroissante
+            const sorted = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
+            container.innerHTML = sorted.map(item => this.createCardHTML(item)).join('');
+            lucide.createIcons();
+        }
     },
 
     renderTour() {
