@@ -327,6 +327,35 @@ const app = {
         return body;
     },
 
+    async init() {
+        this.logToUI("Démarrage v2.3.0...");
+        
+        // Diagnostic visuel de l'URL pour Marie-Astrid
+        const diag = document.getElementById('diag-url');
+        const currentUrl = window.location.origin + window.location.pathname;
+        if (diag) diag.innerText = currentUrl;
+
+        // Activation des boutons statiques (Sécurité iPhone)
+        const o1 = document.getElementById('opt1');
+        const o2 = document.getElementById('opt2');
+        const o3 = document.getElementById('opt3');
+        if (o1) o1.href = this.getAuthUrl('slash');
+        if (o2) o2.href = this.getAuthUrl('index');
+        if (o3) o3.href = this.getAuthUrl('simple');
+
+        // 1. Analyse l'URL (si retour de Google)
+        const hasAuthInUrl = await this.checkAuthResponseInUrl();
+        
+        // 2. Charge la session locale
+        this.initGoogleAuth();
+        this.render();
+        
+        // 3. Lancement automatique de la synchro si identifié et pas déjà en cours
+        if (this.state.token && !hasAuthInUrl && !this.state.isSyncing) {
+            this.refreshData();
+        }
+    },
+
     render() {
         if (this.state.activeView === 'alerts') this.renderList('alerts-list', this.state.listings);
         if (this.state.activeView === 'favorites') this.renderList('favorites-list', this.state.listings.filter(l => this.state.favorites.includes(l.id)));
@@ -338,17 +367,8 @@ const app = {
         const container = document.getElementById(id);
         if (!container) return;
 
+        // En v2.3.0, on ne touche plus au contenu si pas d'utilisateur (les boutons statiques sont là)
         if (!this.state.user) {
-            container.innerHTML = `
-                <div class="empty-state" style="padding-top: 50px;">
-                    <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 25px; border-radius: 20px;">
-                        <i data-lucide="user-plus" style="width: 40px; height: 40px; color: #C5A021; margin-bottom: 15px;"></i>
-                        <h3 style="color: white; margin-bottom: 10px;">Connexion requise</h3>
-                        <p style="color: #94A3B8; font-size: 0.95rem; margin-bottom: 25px;">Connectez votre compte Google pour voir vos alertes SeLoger.</p>
-                        <a href="${this.getAuthUrl()}" style="display:inline-block; text-decoration:none; background: #C5A021; color: #1A2E35; padding: 15px 30px; border-radius: 15px; font-weight: 700; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">Se connecter</a>
-                    </div>
-                </div>`;
-            if (window.lucide) lucide.createIcons();
             return;
         }
 
