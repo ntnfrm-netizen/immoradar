@@ -98,6 +98,13 @@ const app = {
         this.updateAuthUI();
     },
 
+    handleAuthClick(e) {
+        if (e) e.preventDefault();
+        const authUrl = this.getAuthUrl();
+        alert("🔄 REDIRECTION GOOGLE EN COURS...\n(Appuyez sur OK pour y aller)");
+        window.location.href = authUrl;
+    },
+
     updateAuthUI() {
         const loginBtn = document.getElementById('login-button');
         const logoutBtn = document.getElementById('logout-button');
@@ -106,6 +113,7 @@ const app = {
         // On injecte le lien direct dans TOUS les éléments de connexion
         if (loginBtn) {
             loginBtn.href = authUrl;
+            loginBtn.onclick = (e) => this.handleAuthClick(e);
             if (this.state.user) loginBtn.classList.add('hidden');
             else loginBtn.classList.remove('hidden');
         }
@@ -117,7 +125,10 @@ const app = {
         
         // Mise à jour du lien central si présent
         const centerBtn = document.querySelector('.empty-state a');
-        if (centerBtn) centerBtn.href = authUrl;
+        if (centerBtn) {
+            centerBtn.href = authUrl;
+            centerBtn.onclick = (e) => this.handleAuthClick(e);
+        }
     },
 
     handleLogoutClick() {
