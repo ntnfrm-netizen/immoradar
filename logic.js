@@ -81,46 +81,51 @@ const app = {
             return;
         }
 
-        // Configuration Redirect pour iPhone
-        google.accounts.id.initialize({
-            client_id: this.config.CLIENT_ID,
-            callback: (resp) => this.handleCredentialResponse(resp),
-            ux_mode: 'redirect',
-            auto_select: true
-        });
-
-        this.tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: this.config.CLIENT_ID,
-            scope: this.config.SCOPES,
-            callback: (resp) => {
-                if (resp.error) return;
-                this.state.token = resp.access_token;
-                this.refreshData();
-            }
-        });
-
+        // Tente de récupérer un utilisateur ou un token déjà connecté
         const user = localStorage.getItem('immo_user');
-        if (user) {
-            this.state.user = JSON.parse(user);
-            this.updateAuthUI();
-        }
+        const token = localStorage.getItem('immo_token_raw');
+        if (user) this.state.user = JSON.parse(user);
+        if (token) this.state.token = token;
+        
+        this.updateAuthUI();
     },
 
     handleAuthClick() {
-        try {
-            this.tokenClient.requestAccessToken({ prompt: 'consent' });
-        } catch (e) {
-            google.accounts.id.prompt();
-        }
+        const rootUrl = window.location.origin + window.location.pathname;
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+            `client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(rootUrl)}&` +
+            `response_type=token&scope=${encodeURIComponent(this.config.SCOPES)}&prompt=consent`;
+        
+        this.renderLoading('Redirection vers Google...');
+        window.location.href = authUrl;
     },
 
-    handleCredentialResponse(response) {
-        const base64Url = response.credential.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-        this.state.user = JSON.parse(jsonPayload);
-        localStorage.setItem('immo_user', JSON.stringify(this.state.user));
-        this.updateAuthUI();
+    async checkAuthResponseInUrl() {
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        const token = params.get('access_token');
+        if (token) {
+            this.state.token = token;
+            localStorage.setItem('immo_token_raw', token);
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // Récupérer les infos de l'utilisateur avec son token
+            try {
+                this.renderLoading('Récupération de votre profil...');
+                const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const userData = await infoResp.json();
+                if (userData && userData.email) {
+                    this.state.user = userData;
+                    localStorage.setItem('immo_user', JSON.stringify(userData));
+                    this.updateAuthUI();
+                }
+            } catch (e) {
+                console.error("Info profil error", e);
+            }
+            
+            this.refreshData();
+        }
     },
 
     updateAuthUI() {
@@ -136,26 +141,16 @@ const app = {
     },
 
     handleLogoutClick() {
-        google.accounts.id.disableAutoSelect();
         this.state.user = null;
         this.state.token = null;
         localStorage.removeItem('immo_user');
+        localStorage.removeItem('immo_token_raw');
         this.updateAuthUI();
         this.render();
     },
 
-    checkAuthResponseInUrl() {
-        const params = new URLSearchParams(window.location.hash.substring(1));
-        const token = params.get('access_token');
-        if (token) {
-            this.state.token = token;
-            this.refreshData();
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-    },
-
     async refreshData() {
-        if (!this.state.user) {
+        if (!this.state.token) {
             this.handleAuthClick();
             return;
         }
@@ -164,23 +159,24 @@ const app = {
         if (btn) btn.classList.add('animate-spin');
 
         try {
-            this.renderLoading('Connexion Google API...');
+            this.renderLoading('Initialisation API Google...');
             
             let retries = 0;
-            while (!window.gapi && retries < 20) {
+            while (!window.gapi && retries < 15) {
                 await new Promise(r => setTimeout(r, 800));
                 retries++;
-                this.renderLoading(`Connexion Google... (${retries}/20)`);
             }
 
-            if (!window.gapi) throw new Error("GAPI non chargé");
+            if (!window.gapi) throw new Error("Google API introuvable");
 
             await gapi.client.init({
                 apiKey: this.config.API_KEY,
                 discoveryDocs: this.config.DISCOVERY_DOCS,
             });
 
-            this.renderLoading(`Recherche sur ${this.state.user.email}...`);
+            gapi.client.setToken({ access_token: this.state.token });
+
+            this.renderLoading(`Analyse Gmail / SeLoger...`);
             
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
@@ -190,17 +186,21 @@ const app = {
 
             const messages = response.result.messages || [];
             if (messages.length === 0) {
-                this.renderLoading('Zéro mail "SeLoger" trouvé.');
+                this.renderLoading('Zéro mail "SeLoger" trouvé sur ce compte.');
                 return;
             }
 
-            this.renderLoading(`${messages.length} mails trouvés. Analyse...`);
+            this.renderLoading(`${messages.length} mails trouvés. Extraction...`);
             await this.processMessages(messages);
             this.render();
         } catch (error) {
             console.error('Erreur Sync:', error);
             const msg = error.result?.error?.message || error.message || "Erreur de connexion";
-            this.renderLoading(`Erreur : ${msg}`);
+            if (msg.includes('invalid_grant') || msg.includes('401')) {
+                this.handleAuthClick();
+            } else {
+                this.renderLoading(`Erreur : ${msg}`);
+            }
         } finally {
             if (btn) btn.classList.remove('animate-spin');
         }
