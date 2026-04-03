@@ -75,6 +75,14 @@ const app = {
         });
     },
 
+    getAuthUrl() {
+        // L'URL de retour doit être exactement celle enregistrée chez Google
+        const rootUrl = "https://ntnfrm-netizen.github.io/immoradar/";
+        return `https://accounts.google.com/o/oauth2/v2/auth?` +
+            `client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(rootUrl)}&` +
+            `response_type=token&scope=${encodeURIComponent(this.config.SCOPES)}&prompt=consent`;
+    },
+
     initGoogleAuth() {
         if (!window.google) {
             setTimeout(() => this.initGoogleAuth(), 1000);
@@ -90,14 +98,35 @@ const app = {
         this.updateAuthUI();
     },
 
-    handleAuthClick() {
-        const rootUrl = window.location.origin + window.location.pathname;
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-            `client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(rootUrl)}&` +
-            `response_type=token&scope=${encodeURIComponent(this.config.SCOPES)}&prompt=consent`;
+    updateAuthUI() {
+        const loginBtn = document.getElementById('login-button');
+        const logoutBtn = document.getElementById('logout-button');
+        const authUrl = this.getAuthUrl();
+
+        // On injecte le lien direct dans TOUS les éléments de connexion
+        if (loginBtn) {
+            loginBtn.href = authUrl;
+            if (this.state.user) loginBtn.classList.add('hidden');
+            else loginBtn.classList.remove('hidden');
+        }
+
+        if (logoutBtn) {
+            if (this.state.user) logoutBtn.classList.remove('hidden');
+            else logoutBtn.classList.add('hidden');
+        }
         
-        this.renderLoading('Redirection vers Google...');
-        window.location.href = authUrl;
+        // Mise à jour du lien central si présent
+        const centerBtn = document.querySelector('.empty-state a');
+        if (centerBtn) centerBtn.href = authUrl;
+    },
+
+    handleLogoutClick() {
+        this.state.user = null;
+        this.state.token = null;
+        localStorage.removeItem('immo_user');
+        localStorage.removeItem('immo_token_raw');
+        this.updateAuthUI();
+        this.render();
     },
 
     async checkAuthResponseInUrl() {
@@ -110,7 +139,7 @@ const app = {
             
             // Récupérer les infos de l'utilisateur avec son token
             try {
-                this.renderLoading('Récupération de votre profil...');
+                this.renderLoading('Connexion à votre profil...');
                 const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -118,40 +147,19 @@ const app = {
                 if (userData && userData.email) {
                     this.state.user = userData;
                     localStorage.setItem('immo_user', JSON.stringify(userData));
-                    this.updateAuthUI();
                 }
             } catch (e) {
                 console.error("Info profil error", e);
             }
             
+            this.updateAuthUI();
             this.refreshData();
         }
     },
 
-    updateAuthUI() {
-        const loginBtn = document.getElementById('login-button');
-        const logoutBtn = document.getElementById('logout-button');
-        if (this.state.user) {
-            if (loginBtn) loginBtn.classList.add('hidden');
-            if (logoutBtn) logoutBtn.classList.remove('hidden');
-        } else {
-            if (loginBtn) loginBtn.classList.remove('hidden');
-            if (logoutBtn) logoutBtn.classList.add('hidden');
-        }
-    },
-
-    handleLogoutClick() {
-        this.state.user = null;
-        this.state.token = null;
-        localStorage.removeItem('immo_user');
-        localStorage.removeItem('immo_token_raw');
-        this.updateAuthUI();
-        this.render();
-    },
-
     async refreshData() {
         if (!this.state.token) {
-            this.handleAuthClick();
+            window.location.href = this.getAuthUrl();
             return;
         }
 
@@ -167,7 +175,7 @@ const app = {
                 retries++;
             }
 
-            if (!window.gapi) throw new Error("Google API introuvable");
+            if (!window.gapi) throw new Error("API Google indisponible");
 
             await gapi.client.init({
                 apiKey: this.config.API_KEY,
@@ -176,17 +184,17 @@ const app = {
 
             gapi.client.setToken({ access_token: this.state.token });
 
-            this.renderLoading(`Analyse Gmail / SeLoger...`);
+            this.renderLoading(`Analyse des mails SeLoger...`);
             
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
                 'q': 'SeLoger',
-                'maxResults': 25
+                'maxResults': 30
             });
 
             const messages = response.result.messages || [];
             if (messages.length === 0) {
-                this.renderLoading('Zéro mail "SeLoger" trouvé sur ce compte.');
+                this.renderLoading('Zéro mail trouvé sur ce compte.');
                 return;
             }
 
@@ -195,9 +203,9 @@ const app = {
             this.render();
         } catch (error) {
             console.error('Erreur Sync:', error);
-            const msg = error.result?.error?.message || error.message || "Erreur de connexion";
-            if (msg.includes('invalid_grant') || msg.includes('401')) {
-                this.handleAuthClick();
+            const msg = error.result?.error?.message || error.message || "";
+            if (msg.includes('401') || msg.includes('expired')) {
+                window.location.href = this.getAuthUrl();
             } else {
                 this.renderLoading(`Erreur : ${msg}`);
             }
@@ -326,7 +334,7 @@ const app = {
                         <i data-lucide="user-plus" style="width: 40px; height: 40px; color: #C5A021; margin-bottom: 15px;"></i>
                         <h3 style="color: white; margin-bottom: 10px;">Connexion requise</h3>
                         <p style="color: #94A3B8; font-size: 0.95rem; margin-bottom: 25px;">Connectez votre compte Google pour voir vos alertes SeLoger.</p>
-                        <button onclick="app.handleAuthClick()" style="background: #C5A021; color: #1A2E35; border: none; padding: 15px 30px; border-radius: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">Se connecter</button>
+                        <a href="${this.getAuthUrl()}" style="display:inline-block; text-decoration:none; background: #C5A021; color: #1A2E35; padding: 15px 30px; border-radius: 15px; font-weight: 700; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">Se connecter</a>
                     </div>
                 </div>`;
             if (window.lucide) lucide.createIcons();
@@ -375,7 +383,7 @@ const app = {
         });
         const titleEl = document.getElementById('view-title');
         const titles = { 'alerts':'IMMORADAR', 'map':'Carte', 'tour':'Tournée', 'favorites':'Favoris' };
-        if (titleEl) titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.9.0</span>`;
+        if (titleEl) titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v1.9.2</span>`;
         this.state.activeView = viewId;
         this.render();
     },
