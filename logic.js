@@ -76,8 +76,11 @@ const app = {
     },
 
     getAuthUrl() {
-        // L'URL de retour doit être exactement celle enregistrée chez Google
-        const rootUrl = "https://ntnfrm-netizen.github.io/immoradar/";
+        // On essaye la version la plus probable et propre.
+        let rootUrl = window.location.origin + window.location.pathname;
+        if (rootUrl.endsWith('index.html')) rootUrl = rootUrl.replace('index.html', '');
+        if (!rootUrl.endsWith('/')) rootUrl += '/';
+        
         return `https://accounts.google.com/o/oauth2/v2/auth?` +
             `client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(rootUrl)}&` +
             `response_type=token&scope=${encodeURIComponent(this.config.SCOPES)}&prompt=consent`;
@@ -101,7 +104,6 @@ const app = {
     handleAuthClick(e) {
         if (e) e.preventDefault();
         const authUrl = this.getAuthUrl();
-        alert("🔄 REDIRECTION GOOGLE EN COURS...\n(Appuyez sur OK pour y aller)");
         window.location.href = authUrl;
     },
 
@@ -113,7 +115,8 @@ const app = {
         // On injecte le lien direct dans TOUS les éléments de connexion
         if (loginBtn) {
             loginBtn.href = authUrl;
-            loginBtn.onclick = (e) => this.handleAuthClick(e);
+            // On laisse le lien faire son travail sans JavaScript intermédiaire
+            loginBtn.onclick = null; 
             if (this.state.user) loginBtn.classList.add('hidden');
             else loginBtn.classList.remove('hidden');
         }
@@ -127,7 +130,7 @@ const app = {
         const centerBtn = document.querySelector('.empty-state a');
         if (centerBtn) {
             centerBtn.href = authUrl;
-            centerBtn.onclick = (e) => this.handleAuthClick(e);
+            centerBtn.onclick = null;
         }
     },
 
