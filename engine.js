@@ -327,8 +327,21 @@ const app = {
         return body;
     },
 
+    getAuthUrl(variant = 'slash') {
+        const base = "https://accounts.google.com/o/oauth2/v2/auth";
+        const clientId = "76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com";
+        const scopes = encodeURIComponent("https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email");
+        
+        let redirect = "https://ntnfrm-netizen.github.io/immoradar/";
+        if (variant === 'index') redirect += "index.html";
+        if (variant === 'simple') redirect = "https://ntnfrm-netizen.github.io/immoradar";
+        if (variant === 'auto') redirect = window.location.origin + window.location.pathname;
+
+        return `${base}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirect)}&response_type=token&scope=${scopes}`;
+    },
+
     async init() {
-        this.logToUI("Démarrage v2.3.0...");
+        this.logToUI("Démarrage v2.3.1...");
         
         // Diagnostic visuel de l'URL pour Marie-Astrid
         const diag = document.getElementById('diag-url');
@@ -336,9 +349,11 @@ const app = {
         if (diag) diag.innerText = currentUrl;
 
         // Activation des boutons statiques (Sécurité iPhone)
+        const o4 = document.getElementById('opt4');
         const o1 = document.getElementById('opt1');
         const o2 = document.getElementById('opt2');
         const o3 = document.getElementById('opt3');
+        if (o4) o4.href = this.getAuthUrl('auto');
         if (o1) o1.href = this.getAuthUrl('slash');
         if (o2) o2.href = this.getAuthUrl('index');
         if (o3) o3.href = this.getAuthUrl('simple');
