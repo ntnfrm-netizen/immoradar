@@ -143,25 +143,17 @@ const app = {
 
     async checkAuthResponseInUrl() {
         const hash = window.location.hash.substring(1);
-        if (!hash) return;
+        if (!hash) return false;
         
         const params = new URLSearchParams(hash);
         const token = params.get('access_token');
-        const error = params.get('error');
-
-        if (error) {
-            this.logToUI("ERREUR GOOGLE : " + error);
-            return;
-        }
-
         if (token) {
-            this.logToUI("TOKEN REÇU AVEC SUCCÈS ! ✅");
+            this.logToUI("Nouvelle connexion détectée.");
             this.state.token = token;
             localStorage.setItem('immo_token_raw', token);
             window.history.replaceState({}, document.title, window.location.pathname);
             
             try {
-                this.logToUI("Récupération profil...");
                 const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -169,72 +161,66 @@ const app = {
                 if (userData && userData.email) {
                     this.state.user = userData;
                     localStorage.setItem('immo_user', JSON.stringify(userData));
-                    this.logToUI("Bienvenue " + userData.email);
+                    this.logToUI("Connecté en tant que: " + userData.email);
                 }
             } catch (e) { this.logToUI("Erreur Profil: " + e.message); }
             
             this.updateAuthUI();
             this.refreshData();
+            return true;
         }
+        return false;
     },
 
     async refreshData() {
-        if (!this.state.token) {
-            this.logToUI("Sync annulée: pas de token.");
-            return;
-        }
+        if (!this.state.token || this.state.isSyncing) return;
+        this.state.isSyncing = true;
 
         const btn = document.querySelector('[onclick="app.refreshData()"] i');
         if (btn) btn.classList.add('animate-spin');
 
         try {
-            this.logToUI("Chargement GAPI...");
+            this.logToUI("Connexion aux serveurs Google...");
             let retries = 0;
-            while (!window.gapi && retries < 20) {
-                await new Promise(r => setTimeout(r, 800));
+            while (!window.gapi && retries < 25) {
+                await new Promise(r => setTimeout(r, 600));
                 retries++;
             }
 
-            if (!window.gapi) {
-                this.logToUI("ERREUR: GAPI bloqué par Safari !");
-                throw new Error("GAPI non chargé (bloqué par le navigateur)");
-            }
+            if (!window.gapi) throw new Error("Connexion Google impossible (Vérifiez votre réseau)");
 
-            this.logToUI("GAPI trouvé. Init client...");
             await gapi.client.init({
                 apiKey: this.config.API_KEY,
                 discoveryDocs: this.config.DISCOVERY_DOCS,
             });
 
             gapi.client.setToken({ access_token: this.state.token });
-            this.logToUI("Gmail est prêt. Analyse...");
-            
-            this.renderLoading(`Analyse des mails SeLoger...`);
+            this.renderLoading(`Recherche de vos alertes SeLoger...`);
             
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
                 'q': 'SeLoger',
-                'maxResults': 30
+                'maxResults': 40
             });
 
             const messages = response.result.messages || [];
-            this.logToUI(`${messages.length} mails trouvés.`);
-            
             if (messages.length === 0) {
-                this.renderLoading('Zéro mail trouvé. Vérifiez votre compte Gmail.');
+                this.logToUI("Aucun mail SeLoger trouvé.");
+                this.renderLoading('Zéro annonce trouvée. Vérifiez vos alertes SeLoger.');
                 return;
             }
 
-            this.renderLoading(`Extraction de ${messages.length} mails...`);
+            this.logToUI(`${messages.length} mails trouvés. Extraction en cours...`);
             await this.processMessages(messages);
-            this.logToUI("Sync TERMINÉE avec succès ! 🏁");
+            this.logToUI("Mise à jour terminée.");
             this.render();
         } catch (error) {
-            const errorMsg = error.result?.error?.message || error.message || JSON.stringify(error);
-            this.logToUI("ERREUR SYNC: " + errorMsg);
-            this.renderLoading(`<span style="color: #EF4444;">ERREUR :</span> ${errorMsg}<br><br><button onclick="app.handleLogoutClick()" style="background:#EF4444; color:white; border:none; padding:10px; border-radius:10px;">Réinitialiser</button>`);
+            this.logToUI("Erreur: " + (error.message || "Problème de synchronisation"));
+            const msg = error.result?.error?.message || error.message || "Erreur Google";
+            this.renderLoading(`<span style="color:#EF4444;">Détail :</span> ${msg}<br><br><button onclick="app.handleLogoutClick()" style="background:#64748B; color:white; border:none; padding:10px; border-radius:10px;">Réinitialiser la session</button>`);
             localStorage.removeItem('immo_token_raw');
         } finally {
+            this.state.isSyncing = false;
             if (btn) btn.classList.remove('animate-spin');
         }
     },
