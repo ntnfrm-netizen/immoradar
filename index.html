@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script>
-        /* Force reset local storage on FIRST v2.4.0 load */
-        if (!localStorage.getItem('v240_reset')) {
+        /* Force hard-reset for v2.5.0 */
+        if (!localStorage.getItem('v250_reset')) {
             localStorage.clear();
-            localStorage.setItem('v240_reset', 'done');
+            localStorage.setItem('v250_reset', 'done');
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(regs => {
                     for(let reg of regs) reg.unregister();
@@ -16,181 +16,99 @@
             window.location.reload(true);
         }
     </script>
-    <title>ImmoRadar v2.4.0</title>
+    <title>ImmoRadar v2.5.0</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1A2E35">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <!-- Icons (Lucide) -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Google Identity & API -->
-    <script src="https://accounts.google.com/gsi/client" defer></script>
-    <script src="https://apis.google.com/js/api.js" defer></script>
+    <link rel="apple-touch-icon" href="logo.png">
     
-    <!-- Emergency Clear Script (Inline to bypass cache) -->
-    <script>
-        function emergencyClear() {
-            if (confirm("Voulez-vous réinitialiser l'application ? Cela va nettoyer tous les bugs d'affichage.")) {
-                localStorage.clear();
-                // Suppression SW
-                navigator.serviceWorker.getRegistrations().then(regs => {
-                    for(let reg of regs) reg.unregister();
-                });
-                window.location.href = window.location.origin + window.location.pathname + "?v=" + Date.now();
-            }
-        }
-    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" defer></script>
+    <!-- Google API Client Library -->
+    <script src="https://apis.google.com/js/api.js" defer></script>
 </head>
 <body>
-    <!-- App Container -->
     <div id="app">
-        <!-- Header -->
+        <!-- Modern Blur Header -->
         <header class="app-header">
             <div class="logo-container">
                 <img src="logo.png" alt="Logo" class="logo-img">
-                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.4.0</span></h1>
+                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.5.0</span></h1>
             </div>
             <div class="header-actions">
                 <div id="auth-container">
-                    <a id="login-button" class="icon-btn" href="#" title="Connexion Google"><i data-lucide="user-plus"></i></a>
-                    <button id="logout-button" class="icon-btn hidden" onclick="app.handleLogoutClick()" title="Déconnexion"><i data-lucide="log-out"></i></button>
+                    <!-- Auth UI injected here -->
                 </div>
-                <button class="icon-btn" onclick="app.openModal('import-modal')"><i data-lucide="mail"></i></button>
-                <button class="icon-btn" onclick="app.refreshData()"><i data-lucide="refresh-cw"></i></button>
+                <button class="icon-btn" onclick="app.refreshData()">
+                    <i data-lucide="refresh-cw"></i>
+                </button>
             </div>
         </header>
 
-        <!-- Main Content (Views) -->
-        <main id="content">
-            <!-- Alertes View -->
-            <section id="view-alerts" class="view">
-                <div class="filter-bar">
+        <main class="app-main">
+            <!-- Alerts View -->
+            <div id="view-alerts" class="view">
+                <div class="filters-scroll">
                     <span class="badge">Sceaux</span>
                     <span class="badge">Antony</span>
                     <span class="badge">Bourg-la-Reine</span>
                     <span class="badge active">+4 villes</span>
                 </div>
                 <div id="alerts-list">
-                    <div id="fallback-login" class="empty-state" style="padding-top: 50px; display: block;">
-                        <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 25px; border-radius: 20px;">
-                            <h3 style="color: white; margin-bottom: 10px;">Connexion v2.4.0</h3>
-                            <p style="color: #94A3B8; font-size: 0.7rem; margin-bottom: 10px;">Diagnostic : <span id="diag-url" style="color:#C5A021;">Détection...</span></p>
+                    <!-- CONNEXION TRIPLE KEY v2.5.0 -->
+                    <div id="fallback-login" class="empty-state" style="padding-top: 30px; display: block;">
+                        <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 20px; border-radius: 20px;">
+                            <h3 style="color: white; margin-bottom: 10px;">Connexion v2.5.0</h3>
+                            <p style="color: #94A3B8; font-size: 0.7rem; margin-bottom: 15px;">Google a changé ses règles de sécurité. Testez les 3 variantes ci-dessous :</p>
                             
-                            <a id="opt1" href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar%2F&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email" style="display:block; text-decoration:none; background: #C5A021; color: #1A2E35; padding: 12px; margin-bottom: 15px; border-radius: 12px; font-weight: 900; border: 2px solid white;">DÉMARRER LA CONNEXION</a>
+                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar%2F&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email" style="display:block; text-decoration:none; background: #10B981; color: white; padding: 12px; margin-bottom: 10px; border-radius: 12px; font-weight: 700; text-align:center;">CLÉ A (Standard)</a>
                             
-                            <p style="color: #94A3B8; font-size: 0.6rem;">Si le bouton ci-dessus affiche une erreur Google 400, essayez les options ci-dessous :</p>
-                            <a id="opt4" href="#" style="display:block; text-decoration:none; background: #64748B; color: white; padding: 8px; margin-top: 10px; border-radius: 10px; font-size: 0.7rem;">Option de secours (Auto)</a>
+                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email" style="display:block; text-decoration:none; background: #3B82F6; color: white; padding: 12px; margin-bottom: 10px; border-radius: 12px; font-weight: 700; text-align:center;">CLÉ B (Directe)</a>
+                            
+                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar%2Findex.html&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email" style="display:block; text-decoration:none; background: #F59E0B; color: white; padding: 12px; border-radius: 12px; font-weight: 700; text-align:center;">CLÉ C (Index)</a>
+                            
+                            <p style="color: #64748B; font-size: 0.6rem; margin-top: 15px;">Diagnostic : <span id="diag-url">...</span></p>
                         </div>
                     </div>
                 </div>
-                <div class="cards-container">
-                    <!-- Cards will be injected here -->
-                    <div class="loading-state">Récupération des mails Gmail...</div>
-                </div>
-            </section>
+            </div>
 
-            <!-- Carte View -->
-            <section id="view-map" class="view hidden">
-                <div id="map-container">
-                    <div class="map-placeholder">
-                        <i data-lucide="map-pin" size="48"></i>
-                        <p>Carte de découverte Sceaux & 92 Sud</p>
-                    </div>
+            <!-- Map View (Hidden) -->
+            <div id="view-map" class="view hidden">
+                <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: white;">
+                    <p>Carte des biens (v2.5.0)</p>
                 </div>
-            </section>
+            </div>
 
-            <!-- Tournée View -->
-            <section id="view-tour" class="view hidden">
-                <div class="tour-config">
-                    <button class="chip active" onclick="app.setTourFilter(7)">7 jours</button>
-                    <button class="chip" onclick="app.setTourFilter(14)">2 semaines</button>
-                    <button class="chip" onclick="app.setTourFilter(30)">1 mois</button>
+            <!-- Tour View (Hidden) -->
+            <div id="view-tour" class="view hidden">
+                <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: white;">
+                    <p>Optimisation de tournée (v2.5.0)</p>
                 </div>
-                <div class="tour-summary">
-                    <p>Optimisez votre visite pour les <strong>5 biens</strong> récents.</p>
-                    <button class="primary-btn" onclick="app.generateRoute()">
-                        <i data-lucide="navigation"></i> Lancer la Tournée
-                    </button>
-                </div>
-                <div id="tour-list" class="tour-itinerary">
-                    <!-- Stops will be injected here -->
-                </div>
-            </section>
+            </div>
 
-            <!-- Favoris View -->
-            <section id="view-favorites" class="view hidden">
-                <div id="favorites-list" class="cards-container">
+            <!-- Favorites View (Hidden) -->
+            <div id="view-favorites" class="view hidden">
+                 <div id="favorites-list" class="cards-container">
                     <div class="empty-state">
-                        <i data-lucide="heart" size="48"></i>
-                        <p>Aucun bien en favoris pour le moment.</p>
+                        <i data-lucide="heart"></i>
+                        <h3>Aucun favori</h3>
                     </div>
                 </div>
-            </section>
+            </div>
         </main>
 
-        <!-- Manual Add Modal -->
-        <div id="add-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Nouveau Bien</h2>
-                    <button class="close-btn" onclick="app.closeModal('add-modal')"><i data-lucide="x"></i></button>
-                </div>
-                <form id="add-form">
-                    <div class="form-group">
-                        <label>Ville</label>
-                        <select id="add-city" required>
-                            <option value="Sceaux">Sceaux</option>
-                            <option value="Bourg-la-Reine">Bourg-la-Reine</option>
-                            <option value="Antony">Antony</option>
-                            <option value="Châtenay-Malabry" selected>Châtenay-Malabry</option>
-                            <option value="Le Plessis-Robinson">Le Plessis-Robinson</option>
-                            <option value="Fontenay-aux-Roses">Fontenay-aux-Roses</option>
-                            <option value="Clamart">Clamart</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Prix (€)</label>
-                            <input type="number" id="add-price" placeholder="450000" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Surface (m²)</label>
-                            <input type="number" id="add-surface" placeholder="45" required>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>URL / Lien SeLoger</label>
-                        <input type="url" id="add-url" placeholder="https://seloger.com/..." required>
-                    </div>
-                    <button type="submit" class="submit-btn" onclick="app.handleManualAdd(event)">Enregistrer</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Import Email Modal -->
-        <div id="import-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Importer une Alerte</h2>
-                    <button class="close-btn" onclick="app.closeModal('import-modal')"><i data-lucide="x"></i></button>
-                </div>
-                <div class="form-group">
-                    <label>Copiez le contenu du mail SeLoger ici :</label>
-                    <textarea id="email-content" rows="6" placeholder="Ex: 850 000 € - 95 m² - Sceaux..." style="width:100%; border-radius:8px; padding:10px; background:#1E293B; color:white; border:1px solid rgba(255,255,255,0.1);"></textarea>
-                </div>
-                <p style="font-size:0.75rem; color: #94A3B8; margin-bottom: 1rem;">L'IA extraira automatiquement le prix, la surface et la ville.</p>
-                <button class="submit-btn" onclick="app.parseEmail()">Analyser & Ajouter</button>
-            </div>
-        </div>
+        <!-- Dynamic Floating Add Button -->
+        <button class="fab-btn">
+            <i data-lucide="plus"></i>
+        </button>
 
         <!-- Navigation Bar -->
-        <div id="debug-log" style="display: none;">Init v2.4.0...</div>
+        <div id="debug-log" style="display: none;">Init v2.5.0...</div>
         <nav class="app-nav">
             <button class="tab-item active" onclick="app.switchView('alerts')">
                 <i data-lucide="bell"></i>
@@ -200,9 +118,6 @@
                 <i data-lucide="map"></i>
                 <span>Carte</span>
             </button>
-            <button class="tab-plus" onclick="app.openModal('add-modal')">
-                <div class="plus-circle"><i data-lucide="plus"></i></div>
-            </button>
             <button class="tab-item" onclick="app.switchView('tour')">
                 <i data-lucide="route"></i>
                 <span>Tournée</span>
@@ -211,16 +126,25 @@
                 <i data-lucide="heart"></i>
                 <span>Favoris</span>
             </button>
+        </nav>
         <div style="text-align: center; padding: 20px 10px 80px 10px; opacity: 0.5; font-size: 0.7rem; color: white;" onclick="emergencyClear()">
-            Problème technique ? <span style="text-decoration: underline; color: #64748B; font-size: 0.6rem;" onclick="emergencyClear()">Réinitialiser v2.4.0</span><br>
+            Problème technique ? <span style="text-decoration: underline; color: #64748B; font-size: 0.6rem;" onclick="emergencyClear()">Réinitialiser v2.5.0</span><br>
             <a href="https://ntnfrm-netizen.github.io/immoradar/" target="_blank" style="color: #64748B; text-decoration: underline; font-size: 0.65rem; display: block; margin-top: 10px;">Ouvrir dans le vrai Safari (Recommandé)</a>
         </div>
     </div>
 
-    <script src="engine.js?v=2.4.0_FORCE"></script>
+    <!-- UI Logic -->
+    <script src="engine.js?v=2.5.0_FINAL"></script>
     <script>
         // Init Lucide icons
         lucide.createIcons();
+
+        function emergencyClear() {
+            if (confirm("Réinitialiser l'application ?")) {
+                localStorage.clear();
+                window.location.reload(true);
+            }
+        }
     </script>
 </body>
 </html>

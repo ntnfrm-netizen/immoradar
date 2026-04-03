@@ -429,7 +429,7 @@ const app = {
         });
         const titleEl = document.getElementById('view-title');
         const titles = { 'alerts':'IMMORADAR', 'map':'Carte', 'tour':'Tournée', 'favorites':'Favoris' };
-        if (titleEl) titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v2.2.2</span>`;
+        if (titleEl) titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v2.5.0</span>`;
         this.state.activeView = viewId;
         this.render();
     },
