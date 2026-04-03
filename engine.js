@@ -341,7 +341,7 @@ const app = {
     },
 
     async init() {
-        this.logToUI("Démarrage v2.3.1...");
+        this.logToUI("Démarrage v2.4.0...");
         
         // Diagnostic visuel de l'URL pour Marie-Astrid
         const diag = document.getElementById('diag-url');

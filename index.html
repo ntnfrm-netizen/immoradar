@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script>
-        /* Force reset local storage on FIRST v2.2.0 load */
-        if (!localStorage.getItem('v220_reset')) {
+        /* Force reset local storage on FIRST v2.4.0 load */
+        if (!localStorage.getItem('v240_reset')) {
             localStorage.clear();
-            localStorage.setItem('v220_reset', 'done');
+            localStorage.setItem('v240_reset', 'done');
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(regs => {
                     for(let reg of regs) reg.unregister();
@@ -16,7 +16,7 @@
             window.location.reload(true);
         }
     </script>
-    <title>ImmoRadar v2.2.0</title>
+    <title>ImmoRadar v2.4.0</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1A2E35">
@@ -54,7 +54,7 @@
         <header class="app-header">
             <div class="logo-container">
                 <img src="logo.png" alt="Logo" class="logo-img">
-                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.3.1</span></h1>
+                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.4.0</span></h1>
             </div>
             <div class="header-actions">
                 <div id="auth-container">
@@ -79,12 +79,13 @@
                 <div id="alerts-list">
                     <div id="fallback-login" class="empty-state" style="padding-top: 50px; display: block;">
                         <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 25px; border-radius: 20px;">
-                            <h3 style="color: white; margin-bottom: 10px;">Connexion v2.3.1</h3>
+                            <h3 style="color: white; margin-bottom: 10px;">Connexion v2.4.0</h3>
                             <p style="color: #94A3B8; font-size: 0.7rem; margin-bottom: 10px;">Diagnostic : <span id="diag-url" style="color:#C5A021;">Détection...</span></p>
                             
-                            <a id="opt4" href="#" style="display:block; text-decoration:none; background: #C5A021; color: #1A2E35; padding: 12px; margin-bottom: 10px; border-radius: 12px; font-weight: 900; border: 2px solid white;">TEST OPTION 4 (Automatique)</a>
-                            <a id="opt1" href="#" style="display:block; text-decoration:none; background: #C5A021; color: #1A2E35; padding: 12px; margin-bottom: 10px; border-radius: 12px; font-weight: 700; opacity: 0.8;">TEST OPTION 1</a>
-                            <a id="opt2" href="#" style="display:block; text-decoration:none; background: #C5A021; color: #1A2E35; padding: 12px; margin-bottom: 10px; border-radius: 12px; font-weight: 700; opacity: 0.6;">TEST OPTION 2</a>
+                            <a id="opt1" href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar%2F&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email" style="display:block; text-decoration:none; background: #C5A021; color: #1A2E35; padding: 12px; margin-bottom: 15px; border-radius: 12px; font-weight: 900; border: 2px solid white;">DÉMARRER LA CONNEXION</a>
+                            
+                            <p style="color: #94A3B8; font-size: 0.6rem;">Si le bouton ci-dessus affiche une erreur Google 400, essayez les options ci-dessous :</p>
+                            <a id="opt4" href="#" style="display:block; text-decoration:none; background: #64748B; color: white; padding: 8px; margin-top: 10px; border-radius: 10px; font-size: 0.7rem;">Option de secours (Auto)</a>
                         </div>
                     </div>
                 </div>
@@ -189,7 +190,7 @@
         </div>
 
         <!-- Navigation Bar -->
-        <div id="debug-log" style="display: none;">Init v2.3.1...</div>
+        <div id="debug-log" style="display: none;">Init v2.4.0...</div>
         <nav class="app-nav">
             <button class="tab-item active" onclick="app.switchView('alerts')">
                 <i data-lucide="bell"></i>
@@ -211,12 +212,12 @@
                 <span>Favoris</span>
             </button>
         <div style="text-align: center; padding: 20px 10px 80px 10px; opacity: 0.5; font-size: 0.7rem; color: white;" onclick="emergencyClear()">
-            Problème technique ? <span style="text-decoration: underline; color: #64748B; font-size: 0.6rem;" onclick="emergencyClear()">Réinitialiser v2.3.1</span><br>
+            Problème technique ? <span style="text-decoration: underline; color: #64748B; font-size: 0.6rem;" onclick="emergencyClear()">Réinitialiser v2.4.0</span><br>
             <a href="https://ntnfrm-netizen.github.io/immoradar/" target="_blank" style="color: #64748B; text-decoration: underline; font-size: 0.65rem; display: block; margin-top: 10px;">Ouvrir dans le vrai Safari (Recommandé)</a>
         </div>
     </div>
 
-    <script src="engine.js?v=2.3.1_AUTO"></script>
+    <script src="engine.js?v=2.4.0_FORCE"></script>
     <script>
         // Init Lucide icons
         lucide.createIcons();
