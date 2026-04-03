@@ -75,11 +75,19 @@ const app = {
         });
     },
 
-    getAuthUrl() {
-        // On essaye la version la plus probable et propre.
+    getAuthUrl(variant = 'auto') {
         let rootUrl = window.location.origin + window.location.pathname;
-        if (rootUrl.endsWith('index.html')) rootUrl = rootUrl.replace('index.html', '');
-        if (!rootUrl.endsWith('/')) rootUrl += '/';
+        if (variant === 'slash') {
+            if (rootUrl.endsWith('index.html')) rootUrl = rootUrl.replace('index.html', '');
+            if (!rootUrl.endsWith('/')) rootUrl += '/';
+        } else if (variant === 'no-slash') {
+            if (rootUrl.endsWith('/')) rootUrl = rootUrl.substring(0, rootUrl.length - 1);
+        } else if (variant === 'index') {
+            if (!rootUrl.endsWith('index.html')) {
+                if (!rootUrl.endsWith('/')) rootUrl += '/';
+                rootUrl += 'index.html';
+            }
+        }
         
         return `https://accounts.google.com/o/oauth2/v2/auth?` +
             `client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(rootUrl)}&` +
@@ -110,13 +118,10 @@ const app = {
     updateAuthUI() {
         const loginBtn = document.getElementById('login-button');
         const logoutBtn = document.getElementById('logout-button');
-        const authUrl = this.getAuthUrl();
+        const authUrl = this.getAuthUrl('slash'); // On essaye 'slash' par défaut
 
-        // On injecte le lien direct dans TOUS les éléments de connexion
         if (loginBtn) {
             loginBtn.href = authUrl;
-            // On laisse le lien faire son travail sans JavaScript intermédiaire
-            loginBtn.onclick = null; 
             if (this.state.user) loginBtn.classList.add('hidden');
             else loginBtn.classList.remove('hidden');
         }
@@ -124,13 +129,6 @@ const app = {
         if (logoutBtn) {
             if (this.state.user) logoutBtn.classList.remove('hidden');
             else logoutBtn.classList.add('hidden');
-        }
-        
-        // Mise à jour du lien central si présent
-        const centerBtn = document.querySelector('.empty-state a');
-        if (centerBtn) {
-            centerBtn.href = authUrl;
-            centerBtn.onclick = null;
         }
     },
 
