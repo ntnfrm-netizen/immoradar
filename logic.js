@@ -171,7 +171,7 @@ const app = {
 
     async refreshData() {
         if (!this.state.token) {
-            window.location.href = this.getAuthUrl();
+            this.renderLoading('Clé de connexion manquante. Veuillez vous reconnecter.');
             return;
         }
 
@@ -179,15 +179,14 @@ const app = {
         if (btn) btn.classList.add('animate-spin');
 
         try {
-            this.renderLoading('Initialisation API Google...');
-            
+            this.renderLoading('Tentative de connexion Gmail...');
             let retries = 0;
             while (!window.gapi && retries < 15) {
                 await new Promise(r => setTimeout(r, 800));
                 retries++;
             }
 
-            if (!window.gapi) throw new Error("API Google indisponible");
+            if (!window.gapi) throw new Error("API Google indisponible sur ce réseau");
 
             await gapi.client.init({
                 apiKey: this.config.API_KEY,
@@ -195,7 +194,6 @@ const app = {
             });
 
             gapi.client.setToken({ access_token: this.state.token });
-
             this.renderLoading(`Analyse des mails SeLoger...`);
             
             const response = await gapi.client.gmail.users.messages.list({
@@ -206,7 +204,7 @@ const app = {
 
             const messages = response.result.messages || [];
             if (messages.length === 0) {
-                this.renderLoading('Zéro mail trouvé sur ce compte.');
+                this.renderLoading('Zéro mail trouvé. Est-ce le bon compte ?');
                 return;
             }
 
@@ -215,12 +213,10 @@ const app = {
             this.render();
         } catch (error) {
             console.error('Erreur Sync:', error);
-            const msg = error.result?.error?.message || error.message || "";
-            if (msg.includes('401') || msg.includes('expired')) {
-                window.location.href = this.getAuthUrl();
-            } else {
-                this.renderLoading(`Erreur : ${msg}`);
-            }
+            // ON NE REDIRIGE JAMAIS AUTOMATIQUEMENT ICI POUR BRISER LA BOUCLE
+            const errorMsg = error.result?.error?.message || error.message || JSON.stringify(error);
+            this.renderLoading(`<span style="color: #EF4444;">ERREUR GMAIL :</span> ${errorMsg}<br><br><button onclick="app.handleLogoutClick()" style="background:#EF4444; color:white; border:none; padding:10px; border-radius:10px;">Forcer déconnexion / reset</button>`);
+            localStorage.removeItem('immo_token_raw');
         } finally {
             if (btn) btn.classList.remove('animate-spin');
         }
