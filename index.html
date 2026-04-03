@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script>
-        /* Force hard-reset for v2.5.0 */
-        if (!localStorage.getItem('v250_reset')) {
+        /* Force hard-reset for v2.6.0 */
+        if (!localStorage.getItem('v260_reset')) {
             localStorage.clear();
-            localStorage.setItem('v250_reset', 'done');
+            localStorage.setItem('v260_reset', 'done');
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(regs => {
                     for(let reg of regs) reg.unregister();
@@ -16,7 +16,7 @@
             window.location.reload(true);
         }
     </script>
-    <title>ImmoRadar v2.5.0</title>
+    <title>ImmoRadar v2.6.0</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1A2E35">
@@ -26,23 +26,15 @@
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Google Identity Services -->
-    <script src="https://accounts.google.com/gsi/client" defer></script>
-    <!-- Google API Client Library -->
-    <script src="https://apis.google.com/js/api.js" defer></script>
 </head>
 <body>
     <div id="app">
-        <!-- Modern Blur Header -->
         <header class="app-header">
             <div class="logo-container">
                 <img src="logo.png" alt="Logo" class="logo-img">
-                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.5.0</span></h1>
+                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.6.0</span></h1>
             </div>
             <div class="header-actions">
-                <div id="auth-container">
-                    <!-- Auth UI injected here -->
-                </div>
                 <button class="icon-btn" onclick="app.refreshData()">
                     <i data-lucide="refresh-cw"></i>
                 </button>
@@ -50,65 +42,34 @@
         </header>
 
         <main class="app-main">
-            <!-- Alerts View -->
             <div id="view-alerts" class="view">
                 <div class="filters-scroll">
-                    <span class="badge">Sceaux</span>
-                    <span class="badge">Antony</span>
-                    <span class="badge">Bourg-la-Reine</span>
-                    <span class="badge active">+4 villes</span>
+                    <span class="badge active">Toutes les alertes</span>
                 </div>
                 <div id="alerts-list">
-                    <!-- CONNEXION TRIPLE KEY v2.5.0 -->
-                    <div id="fallback-login" class="empty-state" style="padding-top: 30px; display: block;">
+                    <!-- CONNEXION DETECTIVE v2.6.0 -->
+                    <div id="fallback-login" class="empty-state" style="padding-top: 20px; display: block; overflow-y: auto; max-height: 80vh;">
                         <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 20px; border-radius: 20px;">
-                            <h3 style="color: white; margin-bottom: 10px;">Connexion v2.5.0</h3>
-                            <p style="color: #94A3B8; font-size: 0.7rem; margin-bottom: 15px;">Google a changé ses règles de sécurité. Testez les 3 variantes ci-dessous :</p>
+                            <h3 style="color: white; margin-bottom: 5px;">Connexion v2.6.0</h3>
                             
-                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar%2F&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email" style="display:block; text-decoration:none; background: #10B981; color: white; padding: 12px; margin-bottom: 10px; border-radius: 12px; font-weight: 700; text-align:center;">CLÉ A (Standard)</a>
+                            <p style="color: #F59E0B; font-weight: 700; margin-bottom: 10px;">Étape 1 : Essayez la Clé Détective</p>
+                            <a id="btn-detective" href="#" style="display:block; text-decoration:none; background: #F59E0B; color: #1A2E35; padding: 15px; margin-bottom: 20px; border-radius: 12px; font-weight: 900; text-align:center; border: 2px solid white;">CLÉ AUTO (Detective)</a>
                             
-                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email" style="display:block; text-decoration:none; background: #3B82F6; color: white; padding: 12px; margin-bottom: 10px; border-radius: 12px; font-weight: 700; text-align:center;">CLÉ B (Directe)</a>
+                            <p style="color: #94A3B8; font-size: 0.7rem; margin-bottom: 10px;">Étape 2 : Si échec, testez les variantes</p>
+                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar%2F&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly" style="display:block; text-decoration:none; background: #10B981; color: white; padding: 8px; margin-bottom: 8px; border-radius: 10px; font-size: 0.75rem; text-align:center;">GitHub Clé A (Slash)</a>
                             
-                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar%2Findex.html&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email" style="display:block; text-decoration:none; background: #F59E0B; color: white; padding: 12px; border-radius: 12px; font-weight: 700; text-align:center;">CLÉ C (Index)</a>
-                            
-                            <p style="color: #64748B; font-size: 0.6rem; margin-top: 15px;">Diagnostic : <span id="diag-url">...</span></p>
+                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen-immoradar.netlify.app%2F&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly" style="display:block; text-decoration:none; background: #3B82F6; color: white; padding: 8px; margin-bottom: 8px; border-radius: 10px; font-size: 0.75rem; text-align:center;">Netlify Clé D (App)</a>
+
+                            <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                                <p style="color: #64748B; font-size: 0.6rem;">Diagnostic iPhone : <span id="diag-url" style="color:#C5A021;">Détection...</span></p>
+                                <p style="color: #64748B; font-size: 0.6rem; margin-top: 5px;">Si Google affiche une erreur 400, Marie-Astrid doit me donner l'adresse écrite en orange ci-dessus.</p>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Map View (Hidden) -->
-            <div id="view-map" class="view hidden">
-                <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: white;">
-                    <p>Carte des biens (v2.5.0)</p>
-                </div>
-            </div>
-
-            <!-- Tour View (Hidden) -->
-            <div id="view-tour" class="view hidden">
-                <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: white;">
-                    <p>Optimisation de tournée (v2.5.0)</p>
-                </div>
-            </div>
-
-            <!-- Favorites View (Hidden) -->
-            <div id="view-favorites" class="view hidden">
-                 <div id="favorites-list" class="cards-container">
-                    <div class="empty-state">
-                        <i data-lucide="heart"></i>
-                        <h3>Aucun favori</h3>
                     </div>
                 </div>
             </div>
         </main>
 
-        <!-- Dynamic Floating Add Button -->
-        <button class="fab-btn">
-            <i data-lucide="plus"></i>
-        </button>
-
-        <!-- Navigation Bar -->
-        <div id="debug-log" style="display: none;">Init v2.5.0...</div>
         <nav class="app-nav">
             <button class="tab-item active" onclick="app.switchView('alerts')">
                 <i data-lucide="bell"></i>
@@ -118,27 +79,20 @@
                 <i data-lucide="map"></i>
                 <span>Carte</span>
             </button>
-            <button class="tab-item" onclick="app.switchView('tour')">
-                <i data-lucide="route"></i>
-                <span>Tournée</span>
-            </button>
             <button class="tab-item" onclick="app.switchView('favorites')">
                 <i data-lucide="heart"></i>
                 <span>Favoris</span>
             </button>
         </nav>
         <div style="text-align: center; padding: 20px 10px 80px 10px; opacity: 0.5; font-size: 0.7rem; color: white;" onclick="emergencyClear()">
-            Problème technique ? <span style="text-decoration: underline; color: #64748B; font-size: 0.6rem;" onclick="emergencyClear()">Réinitialiser v2.5.0</span><br>
-            <a href="https://ntnfrm-netizen.github.io/immoradar/" target="_blank" style="color: #64748B; text-decoration: underline; font-size: 0.65rem; display: block; margin-top: 10px;">Ouvrir dans le vrai Safari (Recommandé)</a>
+            Problème technique ? <span style="text-decoration: underline; color: #64748B; font-size: 0.6rem;" onclick="emergencyClear()">Réinitialiser v2.6.0</span>
         </div>
     </div>
 
     <!-- UI Logic -->
-    <script src="engine.js?v=2.5.0_FINAL"></script>
+    <script src="engine.js?v=2.6.0_FINAL"></script>
     <script>
-        // Init Lucide icons
         lucide.createIcons();
-
         function emergencyClear() {
             if (confirm("Réinitialiser l'application ?")) {
                 localStorage.clear();
