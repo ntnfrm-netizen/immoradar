@@ -1,8 +1,8 @@
 /**
  * IMMORADAR - Mobile App Logic
  * Designed for Marie-Astrid
- * Version 2.8.1 - Final Polish Build
- * Features: Full UI restoration, Broad search, Reliable Sync
+ * Version 2.8.2 - Instant Boot Build
+ * Fixed: Startup deadlock on iPhone Safari
  */
 
 const app = {
@@ -32,28 +32,36 @@ const app = {
         }
     },
 
-    async init() {
-        this.logToUI("Initialisation v2.8.1...");
+    /**
+     * INIT v2.8.2 - Async & Non-blocking
+     */
+    init() {
+        this.logToUI("Prêt v2.8.2");
+        
         const diag = document.getElementById('diag-url');
         if (diag) diag.innerText = window.location.origin + window.location.pathname;
 
         this.loadLocalData();
-        const hasAuthInUrl = await this.checkAuthResponseInUrl();
         this.initGoogleAuth();
         this.render();
-        
-        if (this.state.token && !hasAuthInUrl && !this.state.isSyncing) {
-            this.refreshData();
-        }
+
+        // On lance la vérification de l'URL sans bloquer le reste
+        this.checkAuthResponseInUrl().then(hasAuth => {
+            if (!hasAuth && this.state.token && !this.state.isSyncing) {
+                this.refreshData();
+            }
+        });
     },
 
     loadLocalData() {
-        const cached = JSON.parse(localStorage.getItem('immo_cache') || '[]');
-        this.state.listings = cached.filter(item => item && item.price > 10000);
+        try {
+            const cached = JSON.parse(localStorage.getItem('immo_cache') || '[]');
+            this.state.listings = Array.isArray(cached) ? cached : [];
+        } catch(e) { this.state.listings = []; }
     },
 
-    getAuthUrl(variant = 'auto') {
-        let redirect = window.location.origin + window.location.pathname;
+    getAuthUrl() {
+        const redirect = window.location.origin + window.location.pathname;
         return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(redirect)}&response_type=token&scope=${encodeURIComponent(this.config.SCOPES)}&prompt=consent`;
     },
 
@@ -62,12 +70,16 @@ const app = {
         const token = localStorage.getItem('immo_token_raw');
         if (user) this.state.user = JSON.parse(user);
         if (token) this.state.token = token;
-        this.render();
+        
+        // Branchement du bouton si présent
+        const v = document.getElementById('btn-vercel');
+        if (v) v.href = this.getAuthUrl();
     },
 
     async checkAuthResponseInUrl() {
         const hash = window.location.hash.substring(1);
         if (!hash) return false;
+        
         const params = new URLSearchParams(hash);
         const token = params.get('access_token');
         if (token) {
@@ -81,19 +93,25 @@ const app = {
     },
 
     async ensureGapiClient() {
-        let attempts = 0;
-        while (!window.gapi && attempts < 20) {
-            await new Promise(r => setTimeout(r, 400));
-            attempts++;
-        }
-        if (!window.gapi) throw new Error("Google Offline");
+        if (window.gapi && gapi.client && gapi.client.gmail) return true;
+
         return new Promise((resolve, reject) => {
-            gapi.load('client', {
-                callback: () => {
-                   gapi.client.init({ apiKey: this.config.API_KEY, discoveryDocs: this.config.DISCOVERY_DOCS }).then(resolve).catch(reject);
-                },
-                onerror: () => reject(new Error("GAPI Error"))
-            });
+            const check = () => {
+                if (window.gapi) {
+                    gapi.load('client', {
+                        callback: () => {
+                            gapi.client.init({
+                                apiKey: this.config.API_KEY,
+                                discoveryDocs: this.config.DISCOVERY_DOCS
+                            }).then(resolve).catch(reject);
+                        },
+                        onerror: () => reject(new Error("GAPI Fail"))
+                    });
+                } else {
+                    setTimeout(check, 500);
+                }
+            };
+            check();
         });
     },
 
@@ -103,20 +121,21 @@ const app = {
         this.state.searchFinished = false;
         this.render();
 
+        const btn = document.querySelector('.icon-btn i');
+        if (btn) btn.classList.add('animate-spin');
+
         try {
-            this.logToUI("Recherche Gmail...");
             await this.ensureGapiClient();
             gapi.client.setToken({ access_token: this.state.token });
             
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
-                'q': 'SeLoger', // Version large pour tester
-                'maxResults': 40
+                'q': 'SeLoger',
+                'maxResults': 30
             });
 
             const messages = response.result.messages || [];
             if (messages.length === 0) {
-                this.logToUI("Aucun mail trouvé.");
                 this.state.searchFinished = true;
                 this.render();
                 return;
@@ -124,14 +143,14 @@ const app = {
 
             await this.processMessages(messages);
             this.state.searchFinished = true;
-            this.logToUI("Terminé.");
             this.render();
         } catch (error) {
-            this.logToUI("Erreur: " + error.message);
+            this.logToUI("Sync: " + (error.message || "Err"));
             this.state.searchFinished = true;
             this.render();
         } finally {
             this.state.isSyncing = false;
+            if (btn) btn.classList.remove('animate-spin');
         }
     },
 
@@ -156,18 +175,15 @@ const app = {
         const body = this.getBody(payload);
         const cleanBody = body.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
         
-        // PRIX
         let price = 0;
         const priceMatch = cleanBody.match(/([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
         if (priceMatch) price = parseInt(priceMatch[1].replace(/\s/g, ''));
         if (price < 10000) return null;
 
-        // SURFACE
         let surface = 0;
         const sMatch = cleanBody.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
         surface = sMatch ? parseFloat(sMatch[1].replace(',', '.')) : 0;
 
-        // VILLE (Dynamic)
         let city = "92";
         const cities = ['Sceaux', 'Antony', 'Bourg-la-Reine', 'Clamart', 'Châtenay', 'Verrières'];
         for (let c of cities) {
@@ -177,10 +193,7 @@ const app = {
         const imgMatch = body.match(/https?:\/\/[^"'\s>]+\.(?:jpg|png|jpeg)/i);
         const img = imgMatch ? imgMatch[0] : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80';
         
-        const urlMatch = body.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
-        const url = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
-
-        return { id, source: 'SeLoger', city, price, surface, rooms: '?', url, img, date: new Date(parseInt(msg.internalDate)).toISOString() };
+        return { id, source: 'SeLoger', city, price, surface, rooms: '?', url: 'https://www.seloger.com', img, date: new Date(parseInt(msg.internalDate)).toISOString() };
     },
 
     getBody(payload) {
@@ -217,12 +230,12 @@ const app = {
 
         if (this.state.activeView === 'favorites') {
             const favs = this.state.listings.filter(l => this.state.favorites.includes(l.id));
-            container.innerHTML = favs.length ? favs.map(l => this.createCardHTML(l)).join('') : '<div class="empty-state"><h3>Coup de cœur ?</h3><p>Marquez des favoris pour les retrouver ici.</p></div>';
+            container.innerHTML = favs.length ? favs.map(l => this.createCardHTML(l)).join('') : '<div class="empty-state"><h3>Favoris</h3><p>Aucun bien pour l\'instant.</p></div>';
         } else if (this.state.activeView === 'alerts') {
             if (this.state.isSyncing && this.state.listings.length === 0) {
                 container.innerHTML = '<div class="empty-state"><div class="animate-spin" style="font-size:2rem; color:#C5A021;">🔄</div><h3>Recherche en cours...</h3></div>';
             } else if (this.state.listings.length === 0 && this.state.searchFinished) {
-                container.innerHTML = '<div class="empty-state"><h3>Tout est à jour !</h3><p>Aucune nouvelle annonce SeLoger trouvée aujourd\'hui.</p></div>';
+                container.innerHTML = '<div class="empty-state"><h3>À jour !</h3><p>Aucune nouvelle annonce aujourd\'hui.</p></div>';
             } else {
                 container.innerHTML = this.state.listings.map(l => this.createCardHTML(l)).join('');
             }
@@ -234,12 +247,12 @@ const app = {
         const isFav = this.state.favorites.includes(item.id);
         return `
             <div class="card">
-                <img src="${item.img}" class="card-img" style="height:140px; object-fit:cover;">
+                <img src="${item.img}" class="card-img" style="height:120px; object-fit:cover;">
                 <div class="card-content">
                     <div class="card-price">${item.price.toLocaleString()} €</div>
                     <div class="card-info">${item.surface} m² | ${item.city}</div>
                     <div class="card-actions">
-                        <a href="${item.url}" target="_blank" class="primary-btn">VOIR</a>
+                        <button class="primary-btn">VOIR</button>
                         <button class="secondary-btn" onclick="app.toggleFavorite('${item.id}')"><i data-lucide="heart" ${isFav ? 'fill="#C5A021"' : ''} style="color:${isFav ? '#C5A021' : '#FFF'}"></i></button>
                     </div>
                 </div>
