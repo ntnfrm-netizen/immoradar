@@ -1,7 +1,7 @@
 /**
  * IMMORADAR - Mobile App Logic
- * Version 3.1.1 - TARGET SENDER FIXED
- * Fixed: Sender email was incorrect, improved regex for screenshot format
+ * Version 3.2.0 - TOTAL VISION BUILD
+ * Fixed: Diagnostic reporting, Geolocation extraction, Itineraries
  */
 
 const app = {
@@ -16,11 +16,12 @@ const app = {
         listings: [],
         favorites: JSON.parse(localStorage.getItem('immo_favorites') || '[]'),
         token: localStorage.getItem('immo_token_raw'),
-        isSyncing: false
+        isSyncing: false,
+        diagnostic: ""
     },
 
     init() {
-        console.log("[IMMORADAR] v3.1.1 Sender Fix");
+        console.log("[IMMORADAR] v3.2.0 Total Vision");
         this.loadLocalData();
         this.render();
 
@@ -58,16 +59,18 @@ const app = {
     },
 
     /**
-     * SYNC FIXED v3.1.1
-     * Real Sender: annonces@alertes.seloger.com
+     * SYNC TOTAL VISION v3.2.0
+     * Diagnostic: Lists subjects found to verify Gmail visibility
      */
     async sync() {
         if (!this.state.token || this.state.isSyncing) return;
         this.state.isSyncing = true;
+        this.state.diagnostic = "Radar en cours d'initialisation...";
         this.render();
 
         try {
-            const query = encodeURIComponent('from:annonces@alertes.seloger.com');
+            // Broad search for diagnosis
+            const query = encodeURIComponent('SeLoger'); 
             const listResp = await fetch(`https://gmail.googleapis.com/v1/users/me/messages?q=${query}&maxResults=30`, {
                 headers: { 'Authorization': `Bearer ${this.state.token}` }
             });
@@ -77,11 +80,30 @@ const app = {
             const messages = listData.messages || [];
 
             if (messages.length === 0) {
+                this.state.diagnostic = "Aucun mail 'SeLoger' trouvé dans votre boîte Gmail.";
                 this.state.isSyncing = false;
                 this.render();
                 return;
             }
 
+            // Diagnostic Step: Fetch subjects
+            const diagResults = await Promise.all(
+                messages.slice(0, 5).map(msg => 
+                    fetch(`https://gmail.googleapis.com/v1/users/me/messages/${msg.id}?fields=payload/headers`, {
+                        headers: { 'Authorization': `Bearer ${this.state.token}` }
+                    }).then(r => r.json())
+                )
+            );
+
+            const subjects = diagResults.map(res => {
+                const h = res.payload.headers.find(h => h.name === 'Subject');
+                return h ? h.value : 'Sans sujet';
+            });
+
+            this.state.diagnostic = `Mails détectés : ${subjects.join(' | ')}`;
+            this.render();
+
+            // Actual Deep Fetch
             const detailsResults = await Promise.all(
                 messages.slice(0, 15).map(msg => 
                     fetch(`https://gmail.googleapis.com/v1/users/me/messages/${msg.id}`, {
@@ -99,9 +121,16 @@ const app = {
             if (newListings.length > 0) {
                 this.state.listings = newListings;
                 localStorage.setItem('immo_cache', JSON.stringify(newListings));
+                this.state.diagnostic = "";
+            } else {
+                this.state.diagnostic = `Diagnostic : ${messages.length} mails trouvés, mais formats non reconnus.`;
             }
         } catch (e) {
-            console.error("Sync Error:", e);
+            this.state.diagnostic = "Erreur de connexion Gmail.";
+            if (e.message === "Expired") {
+                this.state.token = null;
+                localStorage.removeItem('immo_token_raw');
+            }
         } finally {
             this.state.isSyncing = false;
             this.render();
@@ -113,38 +142,37 @@ const app = {
         const body = this.extractBody(payload);
         const clean = body.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
         
-        // PRIX (Handle spaces like 676 000)
+        // PRIX (Robust Capture)
         const pMatch = clean.match(/([0-9]{1,3}[ \t\u00A0]*[0-9]{3}[ \t\u00A0]*[0-9]{3}|[0-9]{1,3}[ \t\u00A0]*[0-9]{3}|[0-9]{4,10})[ \t\u00A0]*(?:€|EUR)/i);
         if (!pMatch) return null;
         const price = parseInt(pMatch[1].replace(/[\s\t\u00A0]/g, ''));
-        if (price < 1000) return null;
 
-        // SURFACE (Handle commas like 105,46)
-        let surface = clean.match(/([0-9]+(?:[.,][0-9]+)?)[ \t\u00A0]*(?:m²|m2)/i);
-        surface = surface ? Math.round(parseFloat(surface[1].replace(',', '.'))) : 0;
+        // SURFACE (Check for , or .)
+        let surfaceMatch = clean.match(/([0-9]+(?:[.,][0-9]+)?)[ \t\u00A0]*(?:m²|m2)/i);
+        let surface = surfaceMatch ? Math.round(parseFloat(surfaceMatch[1].replace(',', '.'))) : 0;
         
-        // PRIX m2
-        const pricePerM2 = surface > 0 ? Math.round(price / surface) : 0;
-
-        // TYPE
-        let type = clean.toLowerCase().includes('maison') ? 'Maison' : 'Appartement';
-        let roomsMatch = clean.match(/([0-9]+)\s*p/i) || clean.match(/([0-9]+)\s*pi/i);
-        let rooms = roomsMatch ? roomsMatch[1] : '?';
-
-        // VILLE (Expanded list)
-        const cities = ['Sceaux', 'Antony', 'Bourg-la-Reine', 'Clamart', 'Châtenay', 'Verrières', 'Le Plessis', 'Fontenay'];
+        // ADRESSE & VILLE (Detailed extraction)
+        let address = "Quartier 92 Sud";
+        const addrMatch = clean.match(/([a-zA-ZàéèêëîïôûùçÀÉÈÊËÎÏÔÛÙÇ\s-]{2,40}),\s*([a-zA-ZàéèêëîïôûùçÀÉÈÊËÎÏÔÛÙÇ\s-]{2,40})\s*\(([0-9]{5})\)/i);
+        if (addrMatch) {
+            address = `${addrMatch[1]}, ${addrMatch[2]} (${addrMatch[3]})`;
+        }
+        
+        const cities = ['Sceaux', 'Antony', 'Bourg-la-Reine', 'Clamart', 'Châtenay-Malabry', 'Fontenay-aux-Roses'];
         let city = "92";
         for (let c of cities) if (clean.toLowerCase().includes(c.toLowerCase())) { city = c; break; }
 
-        // BADGE
-        let status = "Nouveau";
-        if (clean.toLowerCase().includes('exclusif')) status = "Exclusif";
-        if (clean.toLowerCase().includes('réduit') || clean.toLowerCase().includes('baisse')) status = "Prix réduit";
+        // TYPE & ROOMS
+        let type = clean.toLowerCase().includes('maison') ? 'Maison' : 'Appartement';
+        let roomsMatch = clean.match(/([0-9]+)\s*p/i);
+        let rooms = roomsMatch ? roomsMatch[1] : '?';
 
-        const urlMatch = body.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
-        const url = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
-
-        return { id: msg.id, type, rooms, city, price, surface, pricePerM2, status, url, date: new Date(parseInt(msg.internalDate)).toISOString() };
+        return { 
+            id: msg.id, type, rooms, city, address, price, surface, 
+            pricePerM2: surface > 0 ? Math.round(price / surface) : 0, 
+            url: body.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i)?.[0] || 'https://www.seloger.com',
+            date: new Date(parseInt(msg.internalDate)).toISOString() 
+        };
     },
 
     extractBody(payload) {
@@ -155,6 +183,10 @@ const app = {
             payload.parts.forEach(part => body += this.extractBody(part));
         }
         return body;
+    },
+
+    openItinerary(dest) {
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`, '_blank');
     },
 
     switchView(viewId) {
@@ -168,35 +200,16 @@ const app = {
         this.render();
     },
 
-    setFilter(f) {
-        this.state.filter = f;
-        document.querySelectorAll('.pill').forEach(p => {
-            p.classList.remove('active');
-            if(p.innerText.toLowerCase().includes(f.toLowerCase())) p.classList.add('active');
-        });
-        if (f === 'all') document.querySelector('.pill:first-child').classList.add('active');
-        this.render();
-    },
-
-    getRelativeTime(dateIso) {
-        const diff = Math.floor((new Date() - new Date(dateIso)) / 1000 / 60);
-        if (diff < 1) return "À l'instant";
-        if (diff < 60) return `Il y a ${diff} min`;
-        const h = Math.floor(diff / 60);
-        if (h < 24) return `Il y a ${h} h`;
-        return new Date(dateIso).toLocaleDateString();
-    },
-
     render() {
         const wall = document.getElementById('login-wall');
-        const main = document.getElementById('main-ui');
+        const ui = document.getElementById('main-ui');
         
         if (!this.state.token) {
             wall.style.display = 'flex';
-            main.style.display = 'none';
+            ui.style.display = 'none';
         } else {
             wall.style.display = 'none';
-            main.style.display = 'block';
+            ui.style.display = 'block';
         }
 
         // Stats
@@ -205,12 +218,14 @@ const app = {
 
         const list = document.getElementById('alerts-list');
         if (list) {
-            let filtered = this.state.listings.sort((a,b) => new Date(b.date) - new Date(a.date));
+            let filtered = this.state.listings;
             if (this.state.filter !== 'all') filtered = filtered.filter(l => l.type === this.state.filter);
             if (this.state.activeView === 'favoris') filtered = filtered.filter(l => this.state.favorites.includes(l.id));
 
             if (this.state.isSyncing && this.state.listings.length === 0) {
-                list.innerHTML = `<div class="loader-container"><h3>Radar en cours...</h3></div>`;
+                list.innerHTML = `<div class="loader-container"><h3>Radar en cours...</h3><p style="font-size:0.6rem; opacity:0.6; padding-top:10px;">${this.state.diagnostic}</p></div>`;
+            } else if (this.state.listings.length === 0) {
+                list.innerHTML = `<div class="empty-state"><h3>Rien à signaler</h3><p style="font-size:0.6rem; opacity:0.6;">${this.state.diagnostic}</p></div>`;
             } else {
                 list.innerHTML = filtered.map(item => this.createCard(item)).join('');
             }
@@ -221,7 +236,6 @@ const app = {
     createCard(item) {
         const isFav = this.state.favorites.includes(item.id);
         const icon = item.type === 'Maison' ? 'home' : 'building-2';
-        const statusClass = item.status === 'Nouveau' ? 'badge-new' : (item.status === 'Exclusif' ? 'badge-excl' : '');
         
         return `
             <div class="property-card-target">
@@ -229,21 +243,26 @@ const app = {
                 <div class="card-info">
                     <div class="card-header">
                         <span class="card-type">${item.type} · ${item.rooms}P</span>
-                        <span class="badge-tag ${statusClass}">${item.status}</span>
+                        <span class="badge-tag badge-new">Nouveau</span>
                     </div>
-                    <div class="card-subtitle">${item.surface} m² · ${item.city}</div>
+                    <div class="card-subtitle" style="font-size:0.65rem; line-height:1.2;">
+                        ${item.surface} m² · ${item.address}
+                    </div>
                     <div class="card-price-target">${item.price.toLocaleString()} €</div>
                 </div>
                 <div class="card-heart" onclick="app.toggleFav('${item.id}', event)">
                     <i data-lucide="heart" ${isFav ? 'fill="#C5A021"' : ''} style="color: ${isFav ? '#C5A021' : '#FFF'}"></i>
                 </div>
+                <div class="action-buttons-overlay" style="display:flex; gap:10px; margin-top:10px;">
+                    <a href="${item.url}" target="_blank" class="btn-primary-target" style="padding: 8px 15px; font-size: 0.7rem; background: var(--accent-gold);">RÉPONDRE</a>
+                    <button onclick="app.openItinerary('${item.address}')" class="btn-primary-target" style="padding: 8px 15px; font-size: 0.7rem; background: #333; color: #FFF;">ITINÉRAIRE</button>
+                </div>
                 <div class="card-time">${this.getRelativeTime(item.date)}</div>
-                <a href="${item.url}" target="_blank" style="position:absolute; inset:0; z-index:1;"></a>
             </div>`;
     },
 
-    toggleFav(id, event) {
-        event.stopPropagation();
+    toggleFav(id, ev) {
+        ev.stopPropagation();
         const idx = this.state.favorites.indexOf(id);
         if (idx > -1) this.state.favorites.splice(idx, 1);
         else this.state.favorites.push(id);
