@@ -1,6 +1,6 @@
 /* 
- * IMMORADAR v3.3.0 CSS
- * Integration: Interactive Map & Tour Generator
+ * IMMORADAR v3.3.1 CSS
+ * Target: UI Fix (Filter Pills) & Diagnostic Text
  */
 
 :root {
@@ -9,93 +9,51 @@
     --accent-gold: #C5A021;
     --accent-green: #10B981;
     --text-muted: #8E8E93;
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-body {
-    background: var(--bg-main);
-    color: #FFF;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    height: 100vh;
-    padding-top: var(--safe-top);
-    padding-bottom: var(--safe-bottom);
-}
+body { background: var(--bg-main); color: #FFF; font-family: -apple-system, sans-serif; padding-top: env(safe-area-inset-top); }
 
-#app { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-
-/* HEADER */
 .main-header { padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
 .logo-text { font-size: 1.5rem; }
 .radar-text { font-family: "Georgia", serif; font-style: italic; color: var(--accent-gold); }
 .location-text { font-size: 0.65rem; color: var(--text-muted); }
-.header-actions { display: flex; align-items: center; gap: 15px; }
-.icon-btn { background: none; border: none; color: #FFF; }
-.notif-bell { position: relative; background: #23232C; padding: 10px; border-radius: 12px; }
-.badge { position: absolute; top: -5px; right: -5px; background: #D29C4F; font-size: 0.6rem; padding: 2px 5px; border-radius: 50%; font-weight: 900; }
 
-/* WELCOME & RADAR */
+.header-actions { display: flex; align-items: center; gap: 15px; }
+.notif-bell { background: #23232C; padding: 10px; border-radius: 12px; position: relative; }
+.badge { position: absolute; top: -5px; right: -5px; background: #D29C4F; font-size: 0.6rem; padding: 2px 5px; border-radius: 50%; }
+
 .welcome-card { background: #1A1D2D; margin: 15px; padding: 18px; border-radius: 20px; display: flex; align-items: center; gap: 15px; }
-.avatar-circle { width: 45px; height: 45px; background: #BC9F35; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #000; }
+.avatar-circle { width: 45px; height: 45px; background: #BC9F35; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 900; }
 .welcome-text h3 { font-size: 1rem; }
 .welcome-text p { font-size: 0.75rem; color: var(--text-muted); }
 
 .radar-status-bar { background: #0D1F18; margin: 0 15px 15px; padding: 12px 15px; border-radius: 15px; border: 1px solid #143628; display: flex; justify-content: space-between; align-items: center; }
-.radar-info { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: #10B981; }
-.dot-green { width: 8px; height: 8px; background: #10B981; border-radius: 50%; }
+.radar-info { display: flex; align-items: center; gap: 8px; color: #10B981; font-size: 0.75rem; }
+.dot-green { width: 7px; height: 7px; background: #10B981; border-radius: 50%; box-shadow: 0 0 8px #10B981; }
 
-/* MAP INTERACTIVE */
-#view-carte { flex: 1; position: relative; }
-#map-container { height: 100%; position: relative; }
-#map { height: 100%; width: 100%; background: #000; z-index: 1; }
-
-.map-controls {
-    position: absolute; bottom: 20px; left: 20px; right: 20px; z-index: 1000;
+/* FILTER PILLS FIX */
+.filter-pills { display: flex; gap: 10px; padding: 0 15px 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pill { 
+    background: #23232C; border: none; color: #FFF; padding: 10px 20px; border-radius: 50px; 
+    font-size: 0.8rem; font-weight: 700; white-space: nowrap; transition: 0.3s;
 }
+.pill.active { background: var(--accent-gold); color: #000; }
 
-.btn-tour-gen {
-    width: 100%; background: var(--accent-gold); color: #000; border: none;
-    padding: 18px; border-radius: 15px; font-weight: 900; font-size: 0.85rem;
-    display: flex; align-items: center; justify-content: center; gap: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-}
-
-/* CARDS v3.3.0 */
-#app-content { flex: 1; overflow-y: auto; padding-bottom: 90px; }
-.listings-grid { padding: 0 15px; display: grid; gap: 15px; }
-
-.property-card-target {
-    background: var(--bg-card); border-radius: 20px; padding: 15px;
-    display: flex; flex-direction: column; position: relative;
-}
-
-.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.property-card-target { background: var(--bg-card); border-radius: 20px; padding: 15px; margin: 0 15px 15px; position: relative; }
+.card-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
 .card-type { font-size: 1rem; font-weight: 700; }
-.badge-tag { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; background: #163628; color: #10B981; }
-
-.card-subtitle { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 12px; }
+.badge-tag { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; background: #163628; color: #10B981; font-weight: 800; }
+.card-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px; }
 .card-price-target { font-size: 1.5rem; font-weight: 900; color: var(--accent-gold); }
-
-.card-actions-v3 { display: flex; gap: 10px; margin-top: 15px; }
-.btn-target { flex: 1; border: none; border-radius: 10px; padding: 12px; font-size: 0.75rem; font-weight: 800; text-decoration: none; text-align: center; }
-.btn-gold { background: var(--accent-gold); color: #000; }
-.btn-dark { background: #333; color: #FFF; }
-
 .card-heart { position: absolute; top: 15px; right: 15px; color: var(--text-muted); }
-.card-time { font-size: 0.6rem; color: var(--text-muted); align-self: flex-end; margin-top: 5px; }
 
-/* BOTTOM NAV */
-.bottom-nav { position: fixed; bottom: 0; width: 100%; height: 80px; background: #0A0A0C; border-top: 1px solid #1A1A1E; display: flex; justify-content: space-around; align-items: center; padding-bottom: var(--safe-bottom); z-index: 1001; }
+.bottom-nav { position: fixed; bottom: 0; width: 100%; height: 80px; background: #0A0A0C; border-top: 1px solid #1A1A1E; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
 .nav-item { background: none; border: none; color: #444; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .nav-item.active { color: var(--accent-gold); }
 .nav-item span { font-size: 0.6rem; font-weight: 700; }
 
 .hidden { display: none !important; }
-
-/* LEAFLET OVERRIDES */
-.leaflet-container { background: #0b0b0e !important; }
-.leaflet-bar a { background: #1c1c24 !important; color: #fff !important; border: 1px solid #333 !important; }
-.leaflet-popup-content-wrapper { background: #1c1c24 !important; color: #fff !important; border-radius: 12px !important; }
-.leaflet-popup-tip { background: #1c1c24 !important; }
+.loader-container { padding: 40px; text-align: center; }
+.empty-state { padding: 40px; text-align: center; color: var(--text-muted); }
