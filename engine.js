@@ -1,7 +1,7 @@
 /**
  * IMMORADAR - Mobile App Logic
- * Version 3.1.0 - Humble & Target Build
- * Features: Laser Sync (from SeLoger), Humble UI logic
+ * Version 3.1.1 - TARGET SENDER FIXED
+ * Fixed: Sender email was incorrect, improved regex for screenshot format
  */
 
 const app = {
@@ -20,7 +20,7 @@ const app = {
     },
 
     init() {
-        console.log("[IMMORADAR] v3.1.0 Humble Target");
+        console.log("[IMMORADAR] v3.1.1 Sender Fix");
         this.loadLocalData();
         this.render();
 
@@ -58,8 +58,8 @@ const app = {
     },
 
     /**
-     * SYNC LASER v3.1.0
-     * Target: seloger-alertes@seloger.com
+     * SYNC FIXED v3.1.1
+     * Real Sender: annonces@alertes.seloger.com
      */
     async sync() {
         if (!this.state.token || this.state.isSyncing) return;
@@ -67,8 +67,8 @@ const app = {
         this.render();
 
         try {
-            const query = encodeURIComponent('from:seloger-alertes@seloger.com');
-            const listResp = await fetch(`https://gmail.googleapis.com/v1/users/me/messages?q=${query}&maxResults=40`, {
+            const query = encodeURIComponent('from:annonces@alertes.seloger.com');
+            const listResp = await fetch(`https://gmail.googleapis.com/v1/users/me/messages?q=${query}&maxResults=30`, {
                 headers: { 'Authorization': `Bearer ${this.state.token}` }
             });
             
@@ -101,10 +101,7 @@ const app = {
                 localStorage.setItem('immo_cache', JSON.stringify(newListings));
             }
         } catch (e) {
-            if (e.message === "Expired") {
-                this.state.token = null;
-                localStorage.removeItem('immo_token_raw');
-            }
+            console.error("Sync Error:", e);
         } finally {
             this.state.isSyncing = false;
             this.render();
@@ -116,35 +113,38 @@ const app = {
         const body = this.extractBody(payload);
         const clean = body.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
         
-        // PRIX doré
-        const pMatch = clean.match(/([0-9]{1,3}[ \t\u00A0]*[0-9]{3}|[0-9]{4,10})[ \t\u00A0]*(?:€|EUR)/i);
+        // PRIX (Handle spaces like 676 000)
+        const pMatch = clean.match(/([0-9]{1,3}[ \t\u00A0]*[0-9]{3}[ \t\u00A0]*[0-9]{3}|[0-9]{1,3}[ \t\u00A0]*[0-9]{3}|[0-9]{4,10})[ \t\u00A0]*(?:€|EUR)/i);
         if (!pMatch) return null;
         const price = parseInt(pMatch[1].replace(/[\s\t\u00A0]/g, ''));
-        if (price < 500) return null;
+        if (price < 1000) return null;
 
-        // TYPE (Appt / Maison)
-        let type = clean.includes('maison') ? 'Maison' : 'Appartement';
-        let rooms = clean.match(/([0-9]+)\s*p/i);
-        rooms = rooms ? rooms[1] : '?';
-
-        // SURFACE
+        // SURFACE (Handle commas like 105,46)
         let surface = clean.match(/([0-9]+(?:[.,][0-9]+)?)[ \t\u00A0]*(?:m²|m2)/i);
         surface = surface ? Math.round(parseFloat(surface[1].replace(',', '.'))) : 0;
+        
+        // PRIX m2
+        const pricePerM2 = surface > 0 ? Math.round(price / surface) : 0;
 
-        // VILLE
-        const cities = ['Sceaux', 'Antony', 'Bourg-la-Reine', 'Clamart', 'Châtenay', 'Verrières'];
+        // TYPE
+        let type = clean.toLowerCase().includes('maison') ? 'Maison' : 'Appartement';
+        let roomsMatch = clean.match(/([0-9]+)\s*p/i) || clean.match(/([0-9]+)\s*pi/i);
+        let rooms = roomsMatch ? roomsMatch[1] : '?';
+
+        // VILLE (Expanded list)
+        const cities = ['Sceaux', 'Antony', 'Bourg-la-Reine', 'Clamart', 'Châtenay', 'Verrières', 'Le Plessis', 'Fontenay'];
         let city = "92";
         for (let c of cities) if (clean.toLowerCase().includes(c.toLowerCase())) { city = c; break; }
 
-        // BADGE STATUS
+        // BADGE
         let status = "Nouveau";
-        if (clean.includes('exclusif')) status = "Exclusif";
-        if (clean.includes('réduit') || clean.includes('baisse')) status = "Prix réduit";
+        if (clean.toLowerCase().includes('exclusif')) status = "Exclusif";
+        if (clean.toLowerCase().includes('réduit') || clean.toLowerCase().includes('baisse')) status = "Prix réduit";
 
         const urlMatch = body.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
         const url = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
 
-        return { id: msg.id, type, rooms, city, price, surface, status, url, date: new Date(parseInt(msg.internalDate)).toISOString() };
+        return { id: msg.id, type, rooms, city, price, surface, pricePerM2, status, url, date: new Date(parseInt(msg.internalDate)).toISOString() };
     },
 
     extractBody(payload) {
@@ -160,7 +160,8 @@ const app = {
     switchView(viewId) {
         this.state.activeView = viewId;
         document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-        document.getElementById(`view-${viewId === 'alertes' ? 'annonces' : viewId}`).classList.remove('hidden');
+        const target = document.getElementById(`view-${viewId === 'alertes' ? 'annonces' : viewId}`);
+        if(target) target.classList.remove('hidden');
         document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
         const tab = document.querySelector(`.nav-item[onclick*="${viewId}"]`);
         if(tab) tab.classList.add('active');
@@ -193,21 +194,18 @@ const app = {
         if (!this.state.token) {
             wall.style.display = 'flex';
             main.style.display = 'none';
-            document.getElementById('btn-auth').href = this.getAuthUrl();
         } else {
             wall.style.display = 'none';
             main.style.display = 'block';
         }
 
-        // Stats Header
+        // Stats
         document.getElementById('stat-listings').innerText = this.state.listings.length;
-        document.getElementById('alert-count').innerText = this.state.listings.filter(l => this.getRelativeTime(l.date).includes('min')).length;
         document.getElementById('notif-badge').innerText = this.state.listings.length;
 
-        // List Grid
         const list = document.getElementById('alerts-list');
         if (list) {
-            let filtered = this.state.listings;
+            let filtered = this.state.listings.sort((a,b) => new Date(b.date) - new Date(a.date));
             if (this.state.filter !== 'all') filtered = filtered.filter(l => l.type === this.state.filter);
             if (this.state.activeView === 'favoris') filtered = filtered.filter(l => this.state.favorites.includes(l.id));
 
@@ -236,7 +234,7 @@ const app = {
                     <div class="card-subtitle">${item.surface} m² · ${item.city}</div>
                     <div class="card-price-target">${item.price.toLocaleString()} €</div>
                 </div>
-                <div class="card-heart" onclick="app.toggleFav('${item.id}')">
+                <div class="card-heart" onclick="app.toggleFav('${item.id}', event)">
                     <i data-lucide="heart" ${isFav ? 'fill="#C5A021"' : ''} style="color: ${isFav ? '#C5A021' : '#FFF'}"></i>
                 </div>
                 <div class="card-time">${this.getRelativeTime(item.date)}</div>
@@ -244,7 +242,8 @@ const app = {
             </div>`;
     },
 
-    toggleFav(id) {
+    toggleFav(id, event) {
+        event.stopPropagation();
         const idx = this.state.favorites.indexOf(id);
         if (idx > -1) this.state.favorites.splice(idx, 1);
         else this.state.favorites.push(id);
