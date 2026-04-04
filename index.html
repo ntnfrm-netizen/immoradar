@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script>
-        /* Force Reset v2.8.0 */
-        if (!localStorage.getItem('v280_reset')) {
+        /* Force Final v2.8.1 */
+        if (!localStorage.getItem('v281_reset')) {
             localStorage.clear();
-            localStorage.setItem('v280_reset', 'done');
+            localStorage.setItem('v281_reset', 'done');
             window.location.reload(true);
         }
     </script>
-    <title>ImmoRadar v2.8.0</title>
+    <title>ImmoRadar v2.8.1</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1A2E35">
@@ -26,7 +26,7 @@
         <header class="app-header">
             <div class="logo-container">
                 <img src="logo.png" alt="Logo" class="logo-img">
-                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.8.0</span></h1>
+                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.8.1</span></h1>
             </div>
             <div class="header-actions">
                 <button class="icon-btn" onclick="app.refreshData()">
@@ -37,23 +37,15 @@
 
         <main class="app-main">
             <div id="view-alerts" class="view">
-                <div class="filters-scroll">
-                    <span class="badge active">Toutes les alertes</span>
-                </div>
                 <div id="alerts-list">
-                    <!-- CONNEXION VERCEL v2.8.0 -->
-                    <div id="fallback-login" class="empty-state" style="padding-top: 20px; display: block;">
-                        <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 20px; border-radius: 20px;">
-                            <h3 style="color: white; margin-bottom: 5px;">Connexion v2.8.0</h3>
-                            
-                            <p style="color: #10B981; font-weight: 700; margin-bottom: 10px;">Adresse détectée : Vercel ✅</p>
+                    <!-- CONNEXION LOGIC v2.8.1 -->
+                    <div id="fallback-login" class="empty-state" style="padding-top: 30px; display: none;">
+                        <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 25px; border-radius: 20px;">
+                            <h3 style="color: white; margin-bottom: 20px;">Connexion v2.8.1</h3>
                             <a id="btn-vercel" href="#" style="display:block; text-decoration:none; background: #10B981; color: white; padding: 15px; margin-bottom: 10px; border-radius: 12px; font-weight: 900; text-align:center; border: 2px solid white;">CLÉ VERCEL (Recommandée)</a>
-                            
-                            <a id="btn-detective" href="#" style="display:block; text-decoration:none; background: #F59E0B; color: #1A2E35; padding: 12px; border-radius: 12px; font-weight: 700; text-align:center; opacity:0.8;">Clé Detective (Auto)</a>
-
                             <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
-                                <p style="color: #64748B; font-size: 0.6rem;">Diagnostic iPhone : <span id="diag-url" style="color:#C5A021;">Détection...</span></p>
-                                <div id="debug-log" style="font-size: 0.5rem; color: #94A3B8; margin-top: 5px; background: #000; padding: 5px; border-radius: 5px; display:none;"></div>
+                                <p style="color: #64748B; font-size: 0.65rem;">Diagnostic : <span id="diag-url" style="color:#C5A021;">...</span></p>
+                                <div id="debug-log" style="display:none;"></div>
                             </div>
                         </div>
                     </div>
@@ -61,11 +53,11 @@
             </div>
 
             <div id="view-map" class="view hidden">
-                <div class="empty-state">Carte (v2.8.0)</div>
+                <div class="empty-state"><h3>Carte Interactive</h3><p>Affichage des biens sur la carte des Hauts-de-Seine.</p></div>
             </div>
 
             <div id="view-favorites" class="view hidden">
-                <div class="empty-state">Favoris (v2.8.0)</div>
+                <div class="empty-state"><h3>Mes pépites</h3><p>Retrouvez ici vos annonces favorites.</p></div>
             </div>
         </main>
 
@@ -85,7 +77,7 @@
         </nav>
     </div>
 
-    <script src="engine.js?v=2.8.0_VERCEL"></script>
+    <script src="engine.js?v=2.8.1_FINAL"></script>
     <script>
         lucide.createIcons();
     </script>

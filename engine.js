@@ -1,8 +1,8 @@
 /**
  * IMMORADAR - Mobile App Logic
  * Designed for Marie-Astrid
- * Version 2.8.0 - Vercel Synchronization Build
- * Fixed: GAPI Initialization Race Condition & Dynamic Vercel Origin
+ * Version 2.8.1 - Final Polish Build
+ * Features: Full UI restoration, Broad search, Reliable Sync
  */
 
 const app = {
@@ -19,7 +19,8 @@ const app = {
         favorites: JSON.parse(localStorage.getItem('immo_favorites') || '[]'),
         user: null,
         token: null,
-        isSyncing: false
+        isSyncing: false,
+        searchFinished: false
     },
 
     logToUI(message) {
@@ -32,17 +33,9 @@ const app = {
     },
 
     async init() {
-        this.logToUI("Vérification v2.8.0...");
-        
+        this.logToUI("Initialisation v2.8.1...");
         const diag = document.getElementById('diag-url');
-        const currentUrl = window.location.origin + window.location.pathname;
-        if (diag) diag.innerText = currentUrl;
-
-        const b = document.getElementById('btn-detective');
-        if (b) b.href = this.getAuthUrl('auto');
-
-        const v = document.getElementById('btn-vercel');
-        if (v) v.href = this.getAuthUrl('auto');
+        if (diag) diag.innerText = window.location.origin + window.location.pathname;
 
         this.loadLocalData();
         const hasAuthInUrl = await this.checkAuthResponseInUrl();
@@ -60,12 +53,8 @@ const app = {
     },
 
     getAuthUrl(variant = 'auto') {
-        let redirect = "https://ntnfrm-netizen.github.io/immoradar/";
-        if (variant === 'auto') redirect = window.location.origin + window.location.pathname;
-        
-        return `https://accounts.google.com/o/oauth2/v2/auth?` +
-            `client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(redirect)}&` +
-            `response_type=token&scope=${encodeURIComponent(this.config.SCOPES)}&prompt=consent`;
+        let redirect = window.location.origin + window.location.pathname;
+        return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(redirect)}&response_type=token&scope=${encodeURIComponent(this.config.SCOPES)}&prompt=consent`;
     },
 
     initGoogleAuth() {
@@ -79,41 +68,31 @@ const app = {
     async checkAuthResponseInUrl() {
         const hash = window.location.hash.substring(1);
         if (!hash) return false;
-        
         const params = new URLSearchParams(hash);
         const token = params.get('access_token');
         if (token) {
-            this.logToUI("Authentification validée !");
             this.state.token = token;
             localStorage.setItem('immo_token_raw', token);
             window.history.replaceState({}, document.title, window.location.pathname);
-            
             this.refreshData();
             return true;
         }
         return false;
     },
 
-    /**
-     * Waiting for GAPI with safety (Fix for undefined gapi.client)
-     */
     async ensureGapiClient() {
         let attempts = 0;
         while (!window.gapi && attempts < 20) {
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, 400));
             attempts++;
         }
-        if (!window.gapi) throw new Error("Google API introuvable");
-
+        if (!window.gapi) throw new Error("Google Offline");
         return new Promise((resolve, reject) => {
             gapi.load('client', {
                 callback: () => {
-                   gapi.client.init({
-                        apiKey: this.config.API_KEY,
-                        discoveryDocs: this.config.DISCOVERY_DOCS
-                    }).then(resolve).catch(reject);
+                   gapi.client.init({ apiKey: this.config.API_KEY, discoveryDocs: this.config.DISCOVERY_DOCS }).then(resolve).catch(reject);
                 },
-                onerror: () => reject(new Error("Erreur chargement GAPI Client"))
+                onerror: () => reject(new Error("GAPI Error"))
             });
         });
     },
@@ -121,58 +100,44 @@ const app = {
     async refreshData() {
         if (!this.state.token || this.state.isSyncing) return;
         this.state.isSyncing = true;
-
-        const btn = document.querySelector('.icon-btn i');
-        if (btn) btn.classList.add('animate-spin');
+        this.state.searchFinished = false;
+        this.render();
 
         try {
-            this.logToUI("Connexion à Google Cloud...");
+            this.logToUI("Recherche Gmail...");
             await this.ensureGapiClient();
-            
             gapi.client.setToken({ access_token: this.state.token });
-            this.renderLoading(`Recherche des annonces SeLoger...`);
             
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
-                'q': 'SeLoger',
-                'maxResults': 30
+                'q': 'SeLoger', // Version large pour tester
+                'maxResults': 40
             });
 
             const messages = response.result.messages || [];
             if (messages.length === 0) {
-                this.logToUI("Aucun mail SeLoger trouvé.");
+                this.logToUI("Aucun mail trouvé.");
+                this.state.searchFinished = true;
                 this.render();
                 return;
             }
 
             await this.processMessages(messages);
-            this.logToUI("Mise à jour v2.8.0 terminée.");
+            this.state.searchFinished = true;
+            this.logToUI("Terminé.");
             this.render();
         } catch (error) {
-            this.logToUI("Erreur Google: " + (error.message || "Erreur réseau"));
+            this.logToUI("Erreur: " + error.message);
+            this.state.searchFinished = true;
             this.render();
         } finally {
             this.state.isSyncing = false;
-            if (btn) btn.classList.remove('animate-spin');
-        }
-    },
-
-    renderLoading(text) {
-        const container = document.getElementById('alerts-list');
-        if (container && this.state.activeView === 'alerts') {
-            container.innerHTML = `
-                <div class="empty-state" style="padding-top: 50px;">
-                    <div style="border: 1px solid #C5A021; padding: 30px; border-radius: 20px; background: rgba(197,160,33,0.05);">
-                        <p style="color: white; font-size: 1.1rem; font-weight:600;">${text}</p>
-                        <div class="animate-spin" style="margin-top:20px; color:#C5A021;">🔄</div>
-                    </div>
-                </div>`;
         }
     },
 
     async processMessages(messages) {
         const newListings = [];
-        const items = messages.slice(0, 10);
+        const items = messages.slice(0, 15);
         for (const msg of items) {
             try {
                 const detail = await gapi.client.gmail.users.messages.get({ 'userId': 'me', 'id': msg.id });
@@ -188,26 +153,34 @@ const app = {
 
     parseGmailMessage(msg, id) {
         const payload = msg.payload;
-        const subject = payload.headers.find(h => h.name === 'Subject')?.value || "";
         const body = this.getBody(payload);
         const cleanBody = body.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
         
+        // PRIX
         let price = 0;
         const priceMatch = cleanBody.match(/([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
         if (priceMatch) price = parseInt(priceMatch[1].replace(/\s/g, ''));
         if (price < 10000) return null;
 
+        // SURFACE
         let surface = 0;
         const sMatch = cleanBody.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
         surface = sMatch ? parseFloat(sMatch[1].replace(',', '.')) : 0;
 
-        const imgMatch = body.match(/https?:\/\/v\.seloger\.com\/[^"'\s>]+\.(?:jpg|png|jpeg)/i);
+        // VILLE (Dynamic)
+        let city = "92";
+        const cities = ['Sceaux', 'Antony', 'Bourg-la-Reine', 'Clamart', 'Châtenay', 'Verrières'];
+        for (let c of cities) {
+            if (cleanBody.toLowerCase().includes(c.toLowerCase())) { city = c; break; }
+        }
+
+        const imgMatch = body.match(/https?:\/\/[^"'\s>]+\.(?:jpg|png|jpeg)/i);
         const img = imgMatch ? imgMatch[0] : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80';
         
         const urlMatch = body.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
         const url = urlMatch ? urlMatch[0] : 'https://www.seloger.com';
 
-        return { id, source: 'SeLoger', city: "Sceaux", price, surface, rooms: '?', url, img, date: new Date(parseInt(msg.internalDate)).toISOString() };
+        return { id, source: 'SeLoger', city, price, surface, rooms: '?', url, img, date: new Date(parseInt(msg.internalDate)).toISOString() };
     },
 
     getBody(payload) {
@@ -222,15 +195,11 @@ const app = {
 
     switchView(viewId) {
         document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-        const targetView = document.getElementById(`view-${viewId}`);
-        if (targetView) targetView.classList.remove('hidden');
+        document.getElementById(`view-${viewId}`).classList.remove('hidden');
         document.querySelectorAll('.tab-item').forEach(item => {
             item.classList.remove('active');
-            if (item.getAttribute('onclick') && item.getAttribute('onclick').includes(viewId)) item.classList.add('active');
+            if (item.getAttribute('onclick').includes(viewId)) item.classList.add('active');
         });
-        const titleEl = document.getElementById('view-title');
-        const titles = { 'alerts':'IMMORADAR', 'map':'Carte', 'favorites':'Favoris' };
-        if (titleEl) titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v2.8.0</span>`;
         this.state.activeView = viewId;
         this.render();
     },
@@ -239,27 +208,39 @@ const app = {
         const container = document.getElementById('alerts-list');
         if (!container) return;
 
+        if (!this.state.token) {
+            document.getElementById('fallback-login').style.display = 'block';
+            return;
+        } else {
+            document.getElementById('fallback-login').style.display = 'none';
+        }
+
         if (this.state.activeView === 'favorites') {
-            const favs = this.state.listings.filter(l => (this.state.favorites || []).includes(l.id));
-            container.innerHTML = favs.length ? favs.map(l => this.createCardHTML(l)).join('') : '<p class="empty-state">Aucun favori.</p>';
+            const favs = this.state.listings.filter(l => this.state.favorites.includes(l.id));
+            container.innerHTML = favs.length ? favs.map(l => this.createCardHTML(l)).join('') : '<div class="empty-state"><h3>Coup de cœur ?</h3><p>Marquez des favoris pour les retrouver ici.</p></div>';
         } else if (this.state.activeView === 'alerts') {
-            if (!this.state.token) return;
-            container.innerHTML = this.state.listings.length ? this.state.listings.map(l => this.createCardHTML(l)).join('') : '<p class="empty-state">Recherche en cours...</p>';
+            if (this.state.isSyncing && this.state.listings.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="animate-spin" style="font-size:2rem; color:#C5A021;">🔄</div><h3>Recherche en cours...</h3></div>';
+            } else if (this.state.listings.length === 0 && this.state.searchFinished) {
+                container.innerHTML = '<div class="empty-state"><h3>Tout est à jour !</h3><p>Aucune nouvelle annonce SeLoger trouvée aujourd\'hui.</p></div>';
+            } else {
+                container.innerHTML = this.state.listings.map(l => this.createCardHTML(l)).join('');
+            }
         }
         if (window.lucide) lucide.createIcons();
     },
 
     createCardHTML(item) {
-        const isFav = (this.state.favorites || []).includes(item.id);
+        const isFav = this.state.favorites.includes(item.id);
         return `
             <div class="card">
-                <img src="${item.img}" class="card-img">
+                <img src="${item.img}" class="card-img" style="height:140px; object-fit:cover;">
                 <div class="card-content">
                     <div class="card-price">${item.price.toLocaleString()} €</div>
                     <div class="card-info">${item.surface} m² | ${item.city}</div>
                     <div class="card-actions">
-                        <a href="${item.url}" target="_blank" class="primary-btn">Voir</a>
-                        <button class="secondary-btn" onclick="app.toggleFavorite('${item.id}')"><i data-lucide="heart" ${isFav ? 'fill="#C5A021"' : ''}></i></button>
+                        <a href="${item.url}" target="_blank" class="primary-btn">VOIR</a>
+                        <button class="secondary-btn" onclick="app.toggleFavorite('${item.id}')"><i data-lucide="heart" ${isFav ? 'fill="#C5A021"' : ''} style="color:${isFav ? '#C5A021' : '#FFF'}"></i></button>
                     </div>
                 </div>
             </div>`;
