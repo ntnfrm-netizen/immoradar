@@ -4,35 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script>
-        /* Force hard-reset for v2.6.0 */
-        if (!localStorage.getItem('v260_reset')) {
+        /* Nettoyage Force v2.7.0 */
+        if (!localStorage.getItem('v270_reset')) {
             localStorage.clear();
-            localStorage.setItem('v260_reset', 'done');
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(regs => {
-                    for(let reg of regs) reg.unregister();
-                });
-            }
+            localStorage.setItem('v270_reset', 'done');
             window.location.reload(true);
         }
     </script>
-    <title>ImmoRadar v2.6.0</title>
+    <title>ImmoRadar v2.7.0</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1A2E35">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="logo.png">
-    
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://apis.google.com/js/api.js" defer></script>
 </head>
 <body>
     <div id="app">
         <header class="app-header">
             <div class="logo-container">
                 <img src="logo.png" alt="Logo" class="logo-img">
-                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.6.0</span></h1>
+                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.7.0</span></h1>
             </div>
             <div class="header-actions">
                 <button class="icon-btn" onclick="app.refreshData()">
@@ -47,26 +41,32 @@
                     <span class="badge active">Toutes les alertes</span>
                 </div>
                 <div id="alerts-list">
-                    <!-- CONNEXION DETECTIVE v2.6.0 -->
-                    <div id="fallback-login" class="empty-state" style="padding-top: 20px; display: block; overflow-y: auto; max-height: 80vh;">
+                    <!-- CONNEXION RESCUE v2.7.0 -->
+                    <div id="fallback-login" class="empty-state" style="padding-top: 20px; display: block;">
                         <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 20px; border-radius: 20px;">
-                            <h3 style="color: white; margin-bottom: 5px;">Connexion v2.6.0</h3>
+                            <h3 style="color: white; margin-bottom: 5px;">Connexion v2.7.0</h3>
                             
                             <p style="color: #F59E0B; font-weight: 700; margin-bottom: 10px;">Étape 1 : Essayez la Clé Détective</p>
                             <a id="btn-detective" href="#" style="display:block; text-decoration:none; background: #F59E0B; color: #1A2E35; padding: 15px; margin-bottom: 20px; border-radius: 12px; font-weight: 900; text-align:center; border: 2px solid white;">CLÉ AUTO (Detective)</a>
                             
-                            <p style="color: #94A3B8; font-size: 0.7rem; margin-bottom: 10px;">Étape 2 : Si échec, testez les variantes</p>
-                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar%2F&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly" style="display:block; text-decoration:none; background: #10B981; color: white; padding: 8px; margin-bottom: 8px; border-radius: 10px; font-size: 0.75rem; text-align:center;">GitHub Clé A (Slash)</a>
-                            
-                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen-immoradar.netlify.app%2F&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly" style="display:block; text-decoration:none; background: #3B82F6; color: white; padding: 8px; margin-bottom: 8px; border-radius: 10px; font-size: 0.75rem; text-align:center;">Netlify Clé D (App)</a>
+                            <p style="color: #94A3B8; font-size: 0.7rem; margin-bottom: 10px;">Étape 2 : Si échec, Clé de Secours</p>
+                            <a href="https://accounts.google.com/o/oauth2/v2/auth?client_id=76085489153-uflsgdc6t9u09uvr43rgaj2c74m2tg60.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fntnfrm-netizen.github.io%2Fimmoradar%2F&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly" style="display:block; text-decoration:none; background: #10B981; color: white; padding: 12px; border-radius: 12px; font-weight: 700; text-align:center;">CLÉ GITHUB (Hier)</a>
 
                             <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
                                 <p style="color: #64748B; font-size: 0.6rem;">Diagnostic iPhone : <span id="diag-url" style="color:#C5A021;">Détection...</span></p>
-                                <p style="color: #64748B; font-size: 0.6rem; margin-top: 5px;">Si Google affiche une erreur 400, Marie-Astrid doit me donner l'adresse écrite en orange ci-dessus.</p>
+                                <div id="debug-log" style="font-size: 0.5rem; color: #94A3B8; margin-top: 5px; background: #000; padding: 5px; border-radius: 5px; display:none;"></div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div id="view-map" class="view hidden">
+                <div class="empty-state">Carte en maintenance (v2.7.0)</div>
+            </div>
+
+            <div id="view-favorites" class="view hidden">
+                <div class="empty-state">Mes favoris (v2.7.0)</div>
             </div>
         </main>
 
@@ -84,21 +84,14 @@
                 <span>Favoris</span>
             </button>
         </nav>
-        <div style="text-align: center; padding: 20px 10px 80px 10px; opacity: 0.5; font-size: 0.7rem; color: white;" onclick="emergencyClear()">
-            Problème technique ? <span style="text-decoration: underline; color: #64748B; font-size: 0.6rem;" onclick="emergencyClear()">Réinitialiser v2.6.0</span>
+        <div style="text-align: center; padding: 20px 10px 80px 10px; opacity: 0.5; font-size: 0.7rem; color: white;">
+             <span style="text-decoration: underline; color: #64748B;" onclick="localStorage.clear(); window.location.reload(true);">Réinitialiser v2.7.0</span>
         </div>
     </div>
 
-    <!-- UI Logic -->
-    <script src="engine.js?v=2.6.0_FINAL"></script>
+    <script src="engine.js?v=2.7.0_FINAL"></script>
     <script>
         lucide.createIcons();
-        function emergencyClear() {
-            if (confirm("Réinitialiser l'application ?")) {
-                localStorage.clear();
-                window.location.reload(true);
-            }
-        }
     </script>
 </body>
 </html>
