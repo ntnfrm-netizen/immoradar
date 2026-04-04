@@ -1,8 +1,8 @@
 /**
  * IMMORADAR - Mobile App Logic
  * Designed for Marie-Astrid
- * Version 2.8.2 - Instant Boot Build
- * Fixed: Startup deadlock on iPhone Safari
+ * Version 2.8.3 - Robust Sync Build
+ * Fixed: Infinite "Searching" loop with Timeout safety
  */
 
 const app = {
@@ -20,7 +20,8 @@ const app = {
         user: null,
         token: null,
         isSyncing: false,
-        searchFinished: false
+        searchFinished: false,
+        lastError: null
     },
 
     logToUI(message) {
@@ -32,24 +33,15 @@ const app = {
         }
     },
 
-    /**
-     * INIT v2.8.2 - Async & Non-blocking
-     */
     init() {
-        this.logToUI("Prêt v2.8.2");
-        
-        const diag = document.getElementById('diag-url');
-        if (diag) diag.innerText = window.location.origin + window.location.pathname;
-
+        this.logToUI("Pret v2.8.3");
         this.loadLocalData();
         this.initGoogleAuth();
         this.render();
 
-        // On lance la vérification de l'URL sans bloquer le reste
+        // On vérifie l'URL pour le retour de connexion
         this.checkAuthResponseInUrl().then(hasAuth => {
-            if (!hasAuth && this.state.token && !this.state.isSyncing) {
-                this.refreshData();
-            }
+            if (hasAuth) this.refreshData();
         });
     },
 
@@ -66,12 +58,8 @@ const app = {
     },
 
     initGoogleAuth() {
-        const user = localStorage.getItem('immo_user');
         const token = localStorage.getItem('immo_token_raw');
-        if (user) this.state.user = JSON.parse(user);
         if (token) this.state.token = token;
-        
-        // Branchement du bouton si présent
         const v = document.getElementById('btn-vercel');
         if (v) v.href = this.getAuthUrl();
     },
@@ -79,33 +67,40 @@ const app = {
     async checkAuthResponseInUrl() {
         const hash = window.location.hash.substring(1);
         if (!hash) return false;
-        
         const params = new URLSearchParams(hash);
         const token = params.get('access_token');
         if (token) {
             this.state.token = token;
             localStorage.setItem('immo_token_raw', token);
             window.history.replaceState({}, document.title, window.location.pathname);
-            this.refreshData();
             return true;
         }
         return false;
     },
 
+    /**
+     * GAPI Loader with 10s Timeout
+     */
     async ensureGapiClient() {
         if (window.gapi && gapi.client && gapi.client.gmail) return true;
 
         return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error("Timeout Google")), 10000);
+            
             const check = () => {
                 if (window.gapi) {
                     gapi.load('client', {
                         callback: () => {
+                            clearTimeout(timeout);
                             gapi.client.init({
                                 apiKey: this.config.API_KEY,
                                 discoveryDocs: this.config.DISCOVERY_DOCS
                             }).then(resolve).catch(reject);
                         },
-                        onerror: () => reject(new Error("GAPI Fail"))
+                        onerror: () => {
+                            clearTimeout(timeout);
+                            reject(new Error("GAPI Blocked"));
+                        }
                     });
                 } else {
                     setTimeout(check, 500);
@@ -119,19 +114,19 @@ const app = {
         if (!this.state.token || this.state.isSyncing) return;
         this.state.isSyncing = true;
         this.state.searchFinished = false;
+        this.state.lastError = null;
         this.render();
 
-        const btn = document.querySelector('.icon-btn i');
-        if (btn) btn.classList.add('animate-spin');
-
         try {
+            this.logToUI("Connexion Google...");
             await this.ensureGapiClient();
+            
             gapi.client.setToken({ access_token: this.state.token });
             
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
                 'q': 'SeLoger',
-                'maxResults': 30
+                'maxResults': 25
             });
 
             const messages = response.result.messages || [];
@@ -145,12 +140,11 @@ const app = {
             this.state.searchFinished = true;
             this.render();
         } catch (error) {
-            this.logToUI("Sync: " + (error.message || "Err"));
+            this.state.lastError = error.message;
             this.state.searchFinished = true;
             this.render();
         } finally {
             this.state.isSyncing = false;
-            if (btn) btn.classList.remove('animate-spin');
         }
     },
 
@@ -184,16 +178,7 @@ const app = {
         const sMatch = cleanBody.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
         surface = sMatch ? parseFloat(sMatch[1].replace(',', '.')) : 0;
 
-        let city = "92";
-        const cities = ['Sceaux', 'Antony', 'Bourg-la-Reine', 'Clamart', 'Châtenay', 'Verrières'];
-        for (let c of cities) {
-            if (cleanBody.toLowerCase().includes(c.toLowerCase())) { city = c; break; }
-        }
-
-        const imgMatch = body.match(/https?:\/\/[^"'\s>]+\.(?:jpg|png|jpeg)/i);
-        const img = imgMatch ? imgMatch[0] : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80';
-        
-        return { id, source: 'SeLoger', city, price, surface, rooms: '?', url: 'https://www.seloger.com', img, date: new Date(parseInt(msg.internalDate)).toISOString() };
+        return { id, source: 'SeLoger', city: "92", price, surface, rooms: '?', url: 'https://www.seloger.com', img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80', date: new Date(parseInt(msg.internalDate)).toISOString() };
     },
 
     getBody(payload) {
@@ -209,10 +194,6 @@ const app = {
     switchView(viewId) {
         document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
         document.getElementById(`view-${viewId}`).classList.remove('hidden');
-        document.querySelectorAll('.tab-item').forEach(item => {
-            item.classList.remove('active');
-            if (item.getAttribute('onclick').includes(viewId)) item.classList.add('active');
-        });
         this.state.activeView = viewId;
         this.render();
     },
@@ -230,12 +211,14 @@ const app = {
 
         if (this.state.activeView === 'favorites') {
             const favs = this.state.listings.filter(l => this.state.favorites.includes(l.id));
-            container.innerHTML = favs.length ? favs.map(l => this.createCardHTML(l)).join('') : '<div class="empty-state"><h3>Favoris</h3><p>Aucun bien pour l\'instant.</p></div>';
+            container.innerHTML = favs.length ? favs.map(l => this.createCardHTML(l)).join('') : '<div class="empty-state"><h3>Favoris</h3></div>';
         } else if (this.state.activeView === 'alerts') {
             if (this.state.isSyncing && this.state.listings.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="animate-spin" style="font-size:2rem; color:#C5A021;">🔄</div><h3>Recherche en cours...</h3></div>';
+                container.innerHTML = '<div class="empty-state"><div class="animate-spin" style="font-size:2rem; color:#C5A021;">🔄</div><h3>Synchronisation...</h3><p style="font-size:0.6rem; margin-top:10px;">L\'iPhone interroge Google.</p></div>';
+            } else if (this.state.lastError) {
+                container.innerHTML = `<div class="empty-state"><h3>Oups !</h3><p>${this.state.lastError}</p><button onclick="app.refreshData()" style="margin-top:20px; background:#C5A021; border:none; padding:10px 20px; border-radius:12px; font-weight:600;">Réessayer 🔄</button></div>`;
             } else if (this.state.listings.length === 0 && this.state.searchFinished) {
-                container.innerHTML = '<div class="empty-state"><h3>À jour !</h3><p>Aucune nouvelle annonce aujourd\'hui.</p></div>';
+                container.innerHTML = '<div class="empty-state"><h3>Rien de nouveau</h3><p>Revenez plus tard pour les alertes.</p></div>';
             } else {
                 container.innerHTML = this.state.listings.map(l => this.createCardHTML(l)).join('');
             }

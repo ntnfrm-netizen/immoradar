@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script>
-        /* Force Fast v2.8.2 */
-        if (!localStorage.getItem('v282_reset')) {
+        /* Force Robust v2.8.3 */
+        if (!localStorage.getItem('v283_reset')) {
             localStorage.clear();
-            localStorage.setItem('v282_reset', 'done');
+            localStorage.setItem('v283_reset', 'done');
             window.location.reload(true);
         }
     </script>
-    <title>ImmoRadar v2.8.2</title>
+    <title>ImmoRadar v2.8.3</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1A2E35">
@@ -26,7 +26,7 @@
         <header class="app-header">
             <div class="logo-container">
                 <img src="logo.png" alt="Logo" class="logo-img">
-                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.8.2</span></h1>
+                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.8.3</span></h1>
             </div>
             <div class="header-actions">
                 <button class="icon-btn" onclick="app.refreshData()">
@@ -38,14 +38,14 @@
         <main class="app-main">
             <div id="view-alerts" class="view">
                 <div id="alerts-list">
-                    <!-- CONNEXION INSTANT v2.8.2 -->
+                    <!-- CONNEXION ROBUST v2.8.3 -->
                     <div id="fallback-login" class="empty-state" style="padding-top: 30px; display: none;">
                         <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 25px; border-radius: 20px;">
-                            <h3 style="color: white; margin-bottom: 20px;">Connexion v2.8.2</h3>
-                            <a id="btn-vercel" href="#" style="display:block; text-decoration:none; background: #10B981; color: white; padding: 15px; margin-bottom: 20px; border-radius: 12px; font-weight: 900; text-align:center; border: 2px solid white;">CLÉ VERCEL (Recommandée)</a>
-                            <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
-                                <p style="color: #64748B; font-size: 0.65rem;">Diagnostic : <span id="diag-url" style="color:#C5A021;">...</span></p>
-                                <div id="debug-log" style="display:none; font-size:0.5rem; color:#94A3B8;"></div>
+                            <h3 style="color: white; margin-bottom: 20px;">Connexion v2.8.3</h3>
+                            <a id="btn-vercel" href="#" style="display:block; text-decoration:none; background: #10B981; color: white; padding: 15px; margin-bottom: 20px; border-radius: 12px; font-weight: 900; text-align:center; border: 2px solid white;">CLÉ VERCEL</a>
+                            <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; font-size: 0.6rem; color: #64748B;">
+                                <p>Diagnostic : <span id="diag-url" style="color:#C5A021;">...</span></p>
+                                <div id="debug-log" style="display:none; color:#C5A021; margin-top:5px;"></div>
                             </div>
                         </div>
                     </div>
@@ -57,7 +57,7 @@
             </div>
 
             <div id="view-favorites" class="view hidden">
-                <div class="empty-state"><h3>Mes favoris</h3></div>
+                <div class="empty-state"><h3>Favoris</h3></div>
             </div>
         </main>
 
@@ -77,7 +77,7 @@
         </nav>
     </div>
 
-    <script src="engine.js?v=2.8.2_INSTANT"></script>
+    <script src="engine.js?v=2.8.3_ROBUST"></script>
     <script>
         lucide.createIcons();
     </script>
