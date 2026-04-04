@@ -3,65 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <script>
-        /* Force Robust v2.8.3 */
-        if (!localStorage.getItem('v283_reset')) {
-            localStorage.clear();
-            localStorage.setItem('v283_reset', 'done');
-            window.location.reload(true);
-        }
-    </script>
-    <title>ImmoRadar v2.8.3</title>
+    <title>IMMORADAR v3.0.0</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1A2E35">
+    <meta name="theme-color" content="#121212">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="logo.png">
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://apis.google.com/js/api.js"></script>
+    <script>
+        /* Nettoyage Force v3.0.0 */
+        if (!localStorage.getItem('v300_reset')) {
+            localStorage.clear();
+            localStorage.setItem('v300_reset', 'done');
+            window.location.reload(true);
+        }
+    </script>
 </head>
 <body>
     <div id="app">
+        <!-- HEADER LUXE -->
         <header class="app-header">
-            <div class="logo-container">
-                <img src="logo.png" alt="Logo" class="logo-img">
-                <h1 id="view-title">IMMORADAR <span style="font-size: 0.6rem; opacity: 0.5;">v2.8.3</span></h1>
+            <div class="logo-box">
+                <img src="logo.png" alt="Logo" class="logo-hd">
+                <h1>IMMORADAR <span class="version-tag">v3.0.0</span></h1>
             </div>
-            <div class="header-actions">
-                <button class="icon-btn" onclick="app.refreshData()">
+            <div class="header-tools">
+                <button class="sync-trigger" onclick="app.sync()">
                     <i data-lucide="refresh-cw"></i>
+                </button>
+                <button class="logout-trigger" onclick="app.logout()">
+                    <i data-lucide="log-out"></i>
                 </button>
             </div>
         </header>
 
-        <main class="app-main">
-            <div id="view-alerts" class="view">
-                <div id="alerts-list">
-                    <!-- CONNEXION ROBUST v2.8.3 -->
-                    <div id="fallback-login" class="empty-state" style="padding-top: 30px; display: none;">
-                        <div style="background: rgba(197, 160, 33, 0.1); border: 1px dashed #C5A021; padding: 25px; border-radius: 20px;">
-                            <h3 style="color: white; margin-bottom: 20px;">Connexion v2.8.3</h3>
-                            <a id="btn-vercel" href="#" style="display:block; text-decoration:none; background: #10B981; color: white; padding: 15px; margin-bottom: 20px; border-radius: 12px; font-weight: 900; text-align:center; border: 2px solid white;">CLÉ VERCEL</a>
-                            <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; font-size: 0.6rem; color: #64748B;">
-                                <p>Diagnostic : <span id="diag-url" style="color:#C5A021;">...</span></p>
-                                <div id="debug-log" style="display:none; color:#C5A021; margin-top:5px;"></div>
-                            </div>
+        <!-- MAIN CONTENT (AIGUILLAGE PAR TOKEN) -->
+        <main id="app-viewport">
+            
+            <!-- MUR DE CONNEXION (S'affiche si pas de token) -->
+            <section id="login-wall" class="login-screen hidden">
+                <div class="login-hero">
+                    <img src="logo.png" alt="IMMORADAR" class="hero-logo">
+                    <h2>Bienvenue Marie-Astrid</h2>
+                    <p>Votre assistante immobilière intelligente.</p>
+                </div>
+                <div class="login-actions">
+                    <a id="btn-auth" href="#" class="btn-google-luxury">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="G">
+                        CONNEXION GMAIL
+                    </a>
+                </div>
+            </section>
+
+            <!-- CONTENU PRINCIPAL (S'affiche si connecté) -->
+            <section id="main-content" class="authenticated-ui hidden">
+                
+                <!-- VUE ALERTES -->
+                <div id="view-alerts" class="view">
+                    <div class="view-header">
+                        <h2>Dernières Oppportunités</h2>
+                        <span class="view-subtitle">Sceaux & Environs</span>
+                    </div>
+                    <div id="alerts-list" class="property-grid">
+                        <!-- Les cartes v3.0.0 arrivent ici -->
+                    </div>
+                </div>
+
+                <!-- VUE CARTE -->
+                <div id="view-map" class="view hidden">
+                    <div class="view-header">
+                        <h2>Veille Géographique</h2>
+                        <span id="map-count" class="view-subtitle">Chargement...</span>
+                    </div>
+                    <div class="map-container-hd">
+                        <div class="map-placeholder">
+                            <i data-lucide="map-pin"></i>
+                            <p>Visualisation des biens sur la carte interactive des Hauts-de-Seine.</p>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div id="view-map" class="view hidden">
-                <div class="empty-state"><h3>Carte Interactive</h3><p>Localisation des biens.</p></div>
-            </div>
+                <!-- VUE FAVORIS -->
+                <div id="view-favorites" class="view hidden">
+                    <div class="view-header">
+                        <h2>Mes Coups de Cœur</h2>
+                        <span class="view-subtitle">Votre sélection prioritaire</span>
+                    </div>
+                    <div id="favorites-list" class="property-grid">
+                        <!-- Favoris ici -->
+                    </div>
+                </div>
 
-            <div id="view-favorites" class="view hidden">
-                <div class="empty-state"><h3>Favoris</h3></div>
-            </div>
+            </section>
         </main>
 
-        <nav class="app-nav">
+        <!-- NAVIGATION TAB BAR -->
+        <nav class="app-navbar">
             <button class="tab-item active" onclick="app.switchView('alerts')">
                 <i data-lucide="bell"></i>
                 <span>Alertes</span>
@@ -77,9 +115,8 @@
         </nav>
     </div>
 
-    <script src="engine.js?v=2.8.3_ROBUST"></script>
-    <script>
-        lucide.createIcons();
-    </script>
+    <!-- LOGIQUE DE L'APP v3.0.0 -->
+    <script src="engine.js?v=3.0.0"></script>
+    <script> lucide.createIcons(); </script>
 </body>
 </html>
