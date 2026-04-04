@@ -3,103 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>IMMORADAR v3.0.2</title>
+    <title>ImmoRadar v3.1.0</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#121212">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="logo.png">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
-        /* Force Deep v3.0.2 */
-        if (!localStorage.getItem('v302_reset')) {
+        /* Force Reset v3.1.0 (Humble UI) */
+        if (!localStorage.getItem('v310_reset')) {
             localStorage.clear();
-            localStorage.setItem('v302_reset', 'done');
+            localStorage.setItem('v310_reset', 'done');
             window.location.reload(true);
         }
     </script>
 </head>
 <body>
     <div id="app">
-        <header class="app-header">
-            <div class="logo-box">
-                <img src="logo.png" alt="Logo" class="logo-hd">
-                <h1>IMMORADAR <span class="version-tag">v3.0.2</span></h1>
+        <!-- HEADER TARGET UI -->
+        <header class="main-header">
+            <div class="header-left">
+                <h1 class="logo-text">Immo<span class="radar-text">Radar</span></h1>
+                <p class="location-text">Hauts-de-Seine · 92 Sud</p>
             </div>
-            <div class="header-tools">
-                <button class="sync-trigger" onclick="app.sync()">
-                    <i data-lucide="refresh-cw"></i>
-                </button>
-                <button class="logout-trigger" onclick="app.logout()">
-                    <i data-lucide="log-out"></i>
-                </button>
+            <div class="header-right">
+                <div class="notif-bell">
+                    <i data-lucide="bell"></i>
+                    <span id="notif-badge" class="badge">0</span>
+                </div>
             </div>
         </header>
 
-        <main id="app-viewport">
-            <section id="login-wall" class="login-screen" style="display:none;">
-                <div class="login-hero">
-                    <img src="logo.png" alt="IMMORADAR" class="hero-logo">
-                    <h2>Bienvenue Marie-Astrid</h2>
-                    <p>Connectez votre Gmail pour activer la veille.</p>
-                </div>
-                <div class="login-actions">
-                    <a id="btn-auth" href="#" class="btn-google-luxury">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="G">
-                        CONNEXION GMAIL
-                    </a>
+        <main id="app-content">
+            
+            <!-- WALL LOGIN -->
+            <section id="login-wall" class="view" style="display:none;">
+                <div class="login-center">
+                    <h2 style="font-size: 2rem; margin-bottom: 10px;">Démarrage...</h2>
+                    <p style="opacity: 0.6; margin-bottom: 30px;">Architecture v3.1.0 "Laser"</p>
+                    <a id="btn-auth" href="#" class="btn-primary-target">SE CONNECTER</a>
                 </div>
             </section>
 
-            <section id="main-content" class="authenticated-ui" style="display:none;">
-                <div id="view-alerts" class="view">
-                    <div class="view-header">
-                        <h2>Opportunités SeLoger</h2>
-                        <span class="view-subtitle">Détection 92 & Environs</span>
-                    </div>
-                    <div id="alerts-list" class="property-grid"></div>
-                </div>
-
-                <div id="view-map" class="view hidden">
-                    <div class="view-header">
-                        <h2>Géolocalisation</h2>
-                        <span id="map-count" class="view-subtitle">-</span>
-                    </div>
-                    <div class="map-container-hd">
-                        <div class="map-placeholder">
-                            <i data-lucide="map-pin"></i>
-                            <p>Analyse de la situation géographique des biens en cours.</p>
-                        </div>
+            <!-- AUTH CONTENT -->
+            <section id="main-ui" style="display:none;">
+                
+                <!-- USER WELCOME BLOCK -->
+                <div class="welcome-card">
+                    <div class="avatar-circle">MA</div>
+                    <div class="welcome-text">
+                        <h3>Bonjour, Marie Astrid 👋</h3>
+                        <p><span id="stat-cities">7</span> communes · <span id="stat-listings">0</span> biens aujourd'hui</p>
                     </div>
                 </div>
 
-                <div id="view-favorites" class="view hidden">
-                    <div class="view-header">
-                        <h2>Coups de Cœur</h2>
+                <!-- RADAR TOGGLE BAR -->
+                <div class="radar-status-bar">
+                    <div class="radar-info">
+                        <span class="dot-green"></span>
+                        <p>Radar actif — <span id="alert-count">0</span> nouvelles alertes</p>
                     </div>
-                    <div id="favorites-list" class="property-grid"></div>
+                    <label class="switch">
+                        <input type="checkbox" checked disabled>
+                        <span class="slider round"></span>
+                    </label>
                 </div>
+
+                <!-- FILTERS -->
+                <div class="filter-pills">
+                    <button class="pill active" onclick="app.setFilter('all')">Tous</button>
+                    <button class="pill" onclick="app.setFilter('Appartement')">Appt.</button>
+                    <button class="pill" onclick="app.setFilter('Maison')">Maison</button>
+                    <button class="pill-icon"><i data-lucide="sliders-horizontal" style="width:14px;"></i> Filtres</button>
+                </div>
+
+                <!-- LISTING VIEW -->
+                <div id="view-annonces" class="view">
+                    <div id="alerts-list" class="listings-grid">
+                        <!-- Cloned Cards v3.1.0 Here -->
+                    </div>
+                </div>
+
+                <!-- MAP VIEW -->
+                <div id="view-carte" class="view hidden">
+                    <div class="map-placeholder-target">
+                        <i data-lucide="map-pin"></i>
+                        <p>Géolocalisation 92 Sud</p>
+                    </div>
+                </div>
+
+                <!-- FAVORITES VIEW -->
+                <div id="view-favoris" class="view hidden">
+                    <div id="favorites-list" class="listings-grid"></div>
+                </div>
+
             </section>
         </main>
 
-        <nav class="app-navbar">
-            <button class="tab-item active" onclick="app.switchView('alerts')">
-                <i data-lucide="bell"></i>
-                <span>Alertes</span>
+        <!-- TARGET TAB BAR -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="app.switchView('annonces')">
+                <i data-lucide="clipboard-list"></i>
+                <span>Annonces</span>
             </button>
-            <button class="tab-item" onclick="app.switchView('map')">
+            <button class="nav-item" onclick="app.switchView('carte')">
                 <i data-lucide="map"></i>
                 <span>Carte</span>
             </button>
-            <button class="tab-item" onclick="app.switchView('favorites')">
+            <button class="nav-item" onclick="app.switchView('favoris')">
                 <i data-lucide="heart"></i>
                 <span>Favoris</span>
+            </button>
+            <button class="nav-item" onclick="app.switchView('alertes')">
+                <i data-lucide="bell"></i>
+                <span>Alertes</span>
             </button>
         </nav>
     </div>
 
-    <script src="engine.js?v=3.0.2_DEEP"></script>
+    <!-- ENGINE v3.1.0 "Laser" -->
+    <script src="engine.js?v=3.1.0_TARGET"></script>
     <script> lucide.createIcons(); </script>
 </body>
 </html>
