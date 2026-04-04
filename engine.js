@@ -1,8 +1,8 @@
 /**
  * IMMORADAR - Mobile App Logic
  * Designed for Marie-Astrid
- * Version 2.7.0 - Final Crisis Exit Build
- * Fixed: logToUI crash & duplicated functions
+ * Version 2.8.0 - Vercel Synchronization Build
+ * Fixed: GAPI Initialization Race Condition & Dynamic Vercel Origin
  */
 
 const app = {
@@ -17,15 +17,11 @@ const app = {
         activeView: 'alerts',
         listings: [],
         favorites: JSON.parse(localStorage.getItem('immo_favorites') || '[]'),
-        manualAdditions: JSON.parse(localStorage.getItem('immo_manual') || '[]'),
         user: null,
         token: null,
         isSyncing: false
     },
 
-    /**
-     * Diagnostic & Logging Function (Critical Fix)
-     */
     logToUI(message) {
         console.log("[IMMORADAR]", message);
         const log = document.getElementById('debug-log');
@@ -36,28 +32,23 @@ const app = {
     },
 
     async init() {
-        this.logToUI("Démarrage v2.7.0...");
+        this.logToUI("Vérification v2.8.0...");
         
-        // 1. Diagnostic visuel de l'URL pour Marie-Astrid
         const diag = document.getElementById('diag-url');
         const currentUrl = window.location.origin + window.location.pathname;
         if (diag) diag.innerText = currentUrl;
 
-        // 2. Activation du bouton détective (Sécurité iPhone)
         const b = document.getElementById('btn-detective');
         if (b) b.href = this.getAuthUrl('auto');
 
-        // 3. Récupération des données locales
-        this.loadLocalData();
+        const v = document.getElementById('btn-vercel');
+        if (v) v.href = this.getAuthUrl('auto');
 
-        // 4. Analyse l'URL (si retour de Google)
+        this.loadLocalData();
         const hasAuthInUrl = await this.checkAuthResponseInUrl();
-        
-        // 5. Charge la session locale
         this.initGoogleAuth();
         this.render();
         
-        // 6. Lancement automatique de la synchro si identifié et pas déjà en cours
         if (this.state.token && !hasAuthInUrl && !this.state.isSyncing) {
             this.refreshData();
         }
@@ -65,46 +56,19 @@ const app = {
 
     loadLocalData() {
         const cached = JSON.parse(localStorage.getItem('immo_cache') || '[]');
-        const manual = JSON.parse(localStorage.getItem('immo_manual') || '[]');
-        const rawList = [...cached, ...manual].filter(item => item && item.price > 10000);
-        this.state.listings = this.deduplicate(rawList);
-        this.state.manualAdditions = manual;
-    },
-
-    deduplicate(items) {
-        const seen = new Set();
-        return items.filter(item => {
-            const key = `${(item.city || "").toLowerCase().trim()}-${Math.floor(item.price || 0)}-${Math.floor(item.surface || 0)}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
+        this.state.listings = cached.filter(item => item && item.price > 10000);
     },
 
     getAuthUrl(variant = 'auto') {
-        let rootUrl = window.location.origin + window.location.pathname;
-        if (variant === 'slash') {
-            if (rootUrl.endsWith('index.html')) rootUrl = rootUrl.replace('index.html', '');
-            if (!rootUrl.endsWith('/')) rootUrl += '/';
-        } else if (variant === 'no-slash') {
-            if (rootUrl.endsWith('/')) rootUrl = rootUrl.substring(0, rootUrl.length - 1);
-        } else if (variant === 'index') {
-            if (!rootUrl.endsWith('index.html')) {
-                if (!rootUrl.endsWith('/')) rootUrl += '/';
-                rootUrl += 'index.html';
-            }
-        }
+        let redirect = "https://ntnfrm-netizen.github.io/immoradar/";
+        if (variant === 'auto') redirect = window.location.origin + window.location.pathname;
         
         return `https://accounts.google.com/o/oauth2/v2/auth?` +
-            `client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(rootUrl)}&` +
+            `client_id=${this.config.CLIENT_ID}&redirect_uri=${encodeURIComponent(redirect)}&` +
             `response_type=token&scope=${encodeURIComponent(this.config.SCOPES)}&prompt=consent`;
     },
 
     initGoogleAuth() {
-        if (!window.google && !window.gapi) {
-            setTimeout(() => this.initGoogleAuth(), 1000);
-            return;
-        }
         const user = localStorage.getItem('immo_user');
         const token = localStorage.getItem('immo_token_raw');
         if (user) this.state.user = JSON.parse(user);
@@ -119,27 +83,39 @@ const app = {
         const params = new URLSearchParams(hash);
         const token = params.get('access_token');
         if (token) {
-            this.logToUI("Authentification réussie !");
+            this.logToUI("Authentification validée !");
             this.state.token = token;
             localStorage.setItem('immo_token_raw', token);
             window.history.replaceState({}, document.title, window.location.pathname);
-            
-            try {
-                const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const userData = await infoResp.json();
-                if (userData && userData.email) {
-                    this.state.user = userData;
-                    localStorage.setItem('immo_user', JSON.stringify(userData));
-                    this.logToUI("Compte : " + userData.email);
-                }
-            } catch (e) { this.logToUI("Erreur Profil: " + e.message); }
             
             this.refreshData();
             return true;
         }
         return false;
+    },
+
+    /**
+     * Waiting for GAPI with safety (Fix for undefined gapi.client)
+     */
+    async ensureGapiClient() {
+        let attempts = 0;
+        while (!window.gapi && attempts < 20) {
+            await new Promise(r => setTimeout(r, 300));
+            attempts++;
+        }
+        if (!window.gapi) throw new Error("Google API introuvable");
+
+        return new Promise((resolve, reject) => {
+            gapi.load('client', {
+                callback: () => {
+                   gapi.client.init({
+                        apiKey: this.config.API_KEY,
+                        discoveryDocs: this.config.DISCOVERY_DOCS
+                    }).then(resolve).catch(reject);
+                },
+                onerror: () => reject(new Error("Erreur chargement GAPI Client"))
+            });
+        });
     },
 
     async refreshData() {
@@ -150,19 +126,11 @@ const app = {
         if (btn) btn.classList.add('animate-spin');
 
         try {
-            this.logToUI("Synchronisation Gmail...");
-            if (!window.gapi) {
-                this.logToUI("Chargement Google Client...");
-                await new Promise((resolve) => gapi.load('client', resolve));
-            }
-
-            await gapi.client.init({
-                apiKey: this.config.API_KEY,
-                discoveryDocs: this.config.DISCOVERY_DOCS,
-            });
-
+            this.logToUI("Connexion à Google Cloud...");
+            await this.ensureGapiClient();
+            
             gapi.client.setToken({ access_token: this.state.token });
-            this.renderLoading(`Recherche des dernières alertes...`);
+            this.renderLoading(`Recherche des annonces SeLoger...`);
             
             const response = await gapi.client.gmail.users.messages.list({
                 'userId': 'me',
@@ -172,16 +140,16 @@ const app = {
 
             const messages = response.result.messages || [];
             if (messages.length === 0) {
-                this.logToUI("Aucun mail SeLoger.");
+                this.logToUI("Aucun mail SeLoger trouvé.");
                 this.render();
                 return;
             }
 
             await this.processMessages(messages);
-            this.logToUI("Mise à jour terminée.");
+            this.logToUI("Mise à jour v2.8.0 terminée.");
             this.render();
         } catch (error) {
-            this.logToUI("Erreur Sync: " + (error.message || "401"));
+            this.logToUI("Erreur Google: " + (error.message || "Erreur réseau"));
             this.render();
         } finally {
             this.state.isSyncing = false;
@@ -195,7 +163,8 @@ const app = {
             container.innerHTML = `
                 <div class="empty-state" style="padding-top: 50px;">
                     <div style="border: 1px solid #C5A021; padding: 30px; border-radius: 20px; background: rgba(197,160,33,0.05);">
-                        <p style="color: white; font-size: 1.1rem;">${text}</p>
+                        <p style="color: white; font-size: 1.1rem; font-weight:600;">${text}</p>
+                        <div class="animate-spin" style="margin-top:20px; color:#C5A021;">🔄</div>
                     </div>
                 </div>`;
         }
@@ -212,15 +181,14 @@ const app = {
             } catch (e) {}
         }
         if (newListings.length > 0) {
-            this.state.listings = this.deduplicate([...newListings, ...this.state.listings]);
-            localStorage.setItem('immo_cache', JSON.stringify(this.state.listings.filter(l => l.source === 'SeLoger')));
+            this.state.listings = newListings;
+            localStorage.setItem('immo_cache', JSON.stringify(newListings));
         }
     },
 
     parseGmailMessage(msg, id) {
         const payload = msg.payload;
-        const headers = payload.headers;
-        const subject = headers.find(h => h.name === 'Subject')?.value || "";
+        const subject = payload.headers.find(h => h.name === 'Subject')?.value || "";
         const body = this.getBody(payload);
         const cleanBody = body.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
         
@@ -262,7 +230,7 @@ const app = {
         });
         const titleEl = document.getElementById('view-title');
         const titles = { 'alerts':'IMMORADAR', 'map':'Carte', 'favorites':'Favoris' };
-        if (titleEl) titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v2.7.0</span>`;
+        if (titleEl) titleEl.innerHTML = `${titles[viewId] || 'IMMORADAR'} <span style="font-size: 0.6rem; opacity: 0.5;">v2.8.0</span>`;
         this.state.activeView = viewId;
         this.render();
     },
@@ -272,20 +240,17 @@ const app = {
         if (!container) return;
 
         if (this.state.activeView === 'favorites') {
-            const favs = this.state.listings.filter(l => this.state.favorites.includes(l.id));
+            const favs = this.state.listings.filter(l => (this.state.favorites || []).includes(l.id));
             container.innerHTML = favs.length ? favs.map(l => this.createCardHTML(l)).join('') : '<p class="empty-state">Aucun favori.</p>';
         } else if (this.state.activeView === 'alerts') {
-            if (!this.state.user) {
-                // On laisse index.html gérer l'affichage des boutons si pas de session
-                return;
-            }
-            container.innerHTML = this.state.listings.length ? this.state.listings.map(l => this.createCardHTML(l)).join('') : '<p class="empty-state">Aucune annonce trouvée.</p>';
+            if (!this.state.token) return;
+            container.innerHTML = this.state.listings.length ? this.state.listings.map(l => this.createCardHTML(l)).join('') : '<p class="empty-state">Recherche en cours...</p>';
         }
         if (window.lucide) lucide.createIcons();
     },
 
     createCardHTML(item) {
-        const isFav = this.state.favorites.includes(item.id);
+        const isFav = (this.state.favorites || []).includes(item.id);
         return `
             <div class="card">
                 <img src="${item.img}" class="card-img">
