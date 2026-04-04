@@ -1,7 +1,7 @@
 /**
  * IMMORADAR - Mobile App Logic
- * Version 3.0.1 - FINAL VERIFIED BUILD
- * Fixed: Class specificity, Safe Areas, City Detection
+ * Version 3.0.2 - DEEP DETECTION BUILD
+ * Fixed: Parsing robustness & Search depth
  */
 
 const app = {
@@ -15,11 +15,12 @@ const app = {
         listings: [],
         favorites: JSON.parse(localStorage.getItem('immo_favorites') || '[]'),
         token: localStorage.getItem('immo_token_raw'),
-        isSyncing: false
+        isSyncing: false,
+        debugInfo: ""
     },
 
     init() {
-        console.log("[IMMORADAR] v3.0.1 Verified");
+        console.log("[IMMORADAR] v3.0.2 Boot");
         this.loadLocalData();
         this.render();
 
@@ -64,18 +65,31 @@ const app = {
     async sync() {
         if (!this.state.token || this.state.isSyncing) return;
         this.state.isSyncing = true;
+        this.state.debugInfo = "Recherche...";
         this.render();
 
         try {
-            const listResp = await fetch('https://gmail.googleapis.com/v1/users/me/messages?q=SeLoger&maxResults=20', {
+            const query = encodeURIComponent('SeLoger');
+            const listResp = await fetch(`https://gmail.googleapis.com/v1/users/me/messages?q=${query}&maxResults=40`, {
                 headers: { 'Authorization': `Bearer ${this.state.token}` }
             });
+            
             if (!listResp.ok) throw new Error("Expired");
             const listData = await listResp.json();
             const messages = listData.messages || [];
 
+            if (messages.length === 0) {
+                this.state.debugInfo = "Aucun mail SeLoger trouvé.";
+                this.state.isSyncing = false;
+                this.render();
+                return;
+            }
+
+            this.state.debugInfo = `${messages.length} mails trouvés. Analyse...`;
+            this.render();
+
             const detailsResults = await Promise.all(
-                messages.slice(0, 15).map(msg => 
+                messages.slice(0, 20).map(msg => 
                     fetch(`https://gmail.googleapis.com/v1/users/me/messages/${msg.id}`, {
                         headers: { 'Authorization': `Bearer ${this.state.token}` }
                     }).then(r => r.json())
@@ -91,8 +105,13 @@ const app = {
             if (newListings.length > 0) {
                 this.state.listings = newListings;
                 localStorage.setItem('immo_cache', JSON.stringify(newListings));
+                this.state.debugInfo = "";
+            } else {
+                this.state.debugInfo = "Mails trouvés mais format non reconnu.";
             }
         } catch (e) {
+            console.error(e);
+            this.state.debugInfo = "Erreur de synchro.";
             if (e.message === "Expired") {
                 this.state.token = null;
                 localStorage.removeItem('immo_token_raw');
@@ -108,24 +127,28 @@ const app = {
         const body = this.extractBody(payload);
         const clean = body.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
         
+        // PRIX (Plus flexible)
         let price = 0;
-        const pMatch = clean.match(/([0-9]{1,3}(?:\s[0-9]{3})*|[0-9]{4,10})\s*(?:€|EUR)/i);
-        if (pMatch) price = parseInt(pMatch[1].replace(/\s/g, ''));
-        if (price < 10000) return null;
+        const pMatch = clean.match(/([0-9]{1,3}[ \t\u00A0]*[0-9]{3}|[0-9]{4,10})[ \t\u00A0]*(?:€|EUR)/i);
+        if (pMatch) price = parseInt(pMatch[1].replace(/[\s\t\u00A0]/g, ''));
+        if (price < 500) return null; // Un loyer peut être bas, une vente non.
 
+        // SURFACE
         let surface = 0;
-        const sMatch = clean.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:m²|m2)/i);
+        const sMatch = clean.match(/([0-9]+(?:[.,][0-9]+)?)[ \t\u00A0]*(?:m²|m2)/i);
         surface = sMatch ? parseFloat(sMatch[1].replace(',', '.')) : 0;
         const pricePerM2 = surface > 0 ? Math.round(price / surface) : 0;
 
-        let city = "Hauts-de-Seine";
-        const cities = ['Sceaux', 'Antony', 'Bourg-la-Reine', 'Clamart', 'Châtenay', 'Verrières'];
+        // VILLE
+        let city = "92";
+        const cities = ['Sceaux', 'Antony', 'Bourg-la-Reine', 'Clamart', 'Châtenay', 'Verrières', 'Chaville', 'Issy', 'Meudon', 'Boulogne'];
         for (let c of cities) {
             if (clean.toLowerCase().includes(c.toLowerCase())) { city = c; break; }
         }
 
-        const allImgs = body.match(/https?:\/\/[^"'\s>]+\.(?:jpg|png|jpeg)/gi) || [];
-        const filteredImgs = allImgs.filter(url => url.includes('seloger') || url.includes('v.seloger'));
+        // PHOTOS (Extraction robuste avec ou sans extension)
+        const imgCandidates = body.match(/https?:\/\/[^"'\s>]+\.(?:jpg|png|jpeg|webp)(?:\?[^"'\s>]*)?/gi) || [];
+        const filteredImgs = imgCandidates.filter(url => url.includes('seloger') || url.includes('v.seloger'));
         const img = filteredImgs.length > 0 ? filteredImgs[0] : 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80';
 
         const urlMatch = body.match(/https?:\/\/(?:www\.)?seloger\.com\/annonces\/[^"'\s>]+/i);
@@ -147,9 +170,11 @@ const app = {
     switchView(viewId) {
         this.state.activeView = viewId;
         document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-        document.getElementById(`view-${viewId}`).classList.remove('hidden');
+        const target = document.getElementById(`view-${viewId}`);
+        if(target) target.classList.remove('hidden');
         document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-        document.querySelector(`.tab-item[onclick*="${viewId}"]`).classList.add('active');
+        const tab = document.querySelector(`.tab-item[onclick*="${viewId}"]`);
+        if(tab) tab.classList.add('active');
         this.render();
     },
 
@@ -158,27 +183,26 @@ const app = {
         const main = document.getElementById('main-content');
         
         if (!this.state.token) {
-            wall.classList.remove('hidden');
-            wall.style.display = 'flex';
-            main.classList.add('hidden');
-            main.style.display = 'none';
-            document.getElementById('btn-auth').href = this.getAuthUrl();
+            if(wall) wall.style.display = 'flex';
+            if(main) main.style.display = 'none';
+            const ba = document.getElementById('btn-auth');
+            if(ba) ba.href = this.getAuthUrl();
         } else {
-            wall.classList.add('hidden');
-            wall.style.display = 'none';
-            main.classList.remove('hidden');
-            main.style.display = 'block';
+            if(wall) wall.style.display = 'none';
+            if(main) main.style.display = 'block';
         }
 
         const list = document.getElementById('alerts-list');
         if (list) {
             if (this.state.isSyncing && this.state.listings.length === 0) {
-                list.innerHTML = `<div class="loader-container"><div class="spinner"></div><p>Synchronisation Premium...</p></div>`;
+                list.innerHTML = `<div class="loader-container"><div class="spinner"></div><p>${this.state.debugInfo}</p></div>`;
+            } else if (this.state.listings.length === 0) {
+                list.innerHTML = `<div class="empty-state"><h3>Rien à signaler</h3><p style="font-size:0.7rem; opacity:0.6;">${this.state.debugInfo}</p></div>`;
             } else {
                 const results = this.state.activeView === 'favorites' ? 
                                 this.state.listings.filter(l => this.state.favorites.includes(l.id)) : 
                                 this.state.listings;
-                list.innerHTML = results.length ? results.map(item => this.createCard(item)).join('') : `<div class="empty-state"><h3>Rien à signaler</h3></div>`;
+                list.innerHTML = results.map(item => this.createCard(item)).join('');
             }
         }
         if (window.lucide) lucide.createIcons();
@@ -201,7 +225,7 @@ const app = {
                         <span class="date">${new Date(item.date).toLocaleDateString()}</span>
                     </div>
                     <div class="card-actions">
-                        <a href="${item.url}" target="_blank" class="btn-primary">VOIR</a>
+                        <a href="${item.url}" target="_blank" class="btn-primary">DÉTAILS</a>
                         <button class="btn-fav" onclick="app.toggleFav('${item.id}')">
                             <i data-lucide="heart" ${isFav ? 'fill="#D4AF37"' : ''} style="color: ${isFav ? '#D4AF37' : '#FFF'}"></i>
                         </button>

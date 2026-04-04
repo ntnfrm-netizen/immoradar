@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>IMMORADAR v3.0.0</title>
+    <title>IMMORADAR v3.0.2</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#121212">
@@ -12,21 +12,20 @@
     <link rel="apple-touch-icon" href="logo.png">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
-        /* Nettoyage Force v3.0.0 */
-        if (!localStorage.getItem('v300_reset')) {
+        /* Force Deep v3.0.2 */
+        if (!localStorage.getItem('v302_reset')) {
             localStorage.clear();
-            localStorage.setItem('v300_reset', 'done');
+            localStorage.setItem('v302_reset', 'done');
             window.location.reload(true);
         }
     </script>
 </head>
 <body>
     <div id="app">
-        <!-- HEADER LUXE -->
         <header class="app-header">
             <div class="logo-box">
                 <img src="logo.png" alt="Logo" class="logo-hd">
-                <h1>IMMORADAR <span class="version-tag">v3.0.0</span></h1>
+                <h1>IMMORADAR <span class="version-tag">v3.0.2</span></h1>
             </div>
             <div class="header-tools">
                 <button class="sync-trigger" onclick="app.sync()">
@@ -38,15 +37,12 @@
             </div>
         </header>
 
-        <!-- MAIN CONTENT (AIGUILLAGE PAR TOKEN) -->
         <main id="app-viewport">
-            
-            <!-- MUR DE CONNEXION (S'affiche si pas de token) -->
-            <section id="login-wall" class="login-screen hidden">
+            <section id="login-wall" class="login-screen" style="display:none;">
                 <div class="login-hero">
                     <img src="logo.png" alt="IMMORADAR" class="hero-logo">
                     <h2>Bienvenue Marie-Astrid</h2>
-                    <p>Votre assistante immobilière intelligente.</p>
+                    <p>Connectez votre Gmail pour activer la veille.</p>
                 </div>
                 <div class="login-actions">
                     <a id="btn-auth" href="#" class="btn-google-luxury">
@@ -56,49 +52,37 @@
                 </div>
             </section>
 
-            <!-- CONTENU PRINCIPAL (S'affiche si connecté) -->
-            <section id="main-content" class="authenticated-ui hidden">
-                
-                <!-- VUE ALERTES -->
+            <section id="main-content" class="authenticated-ui" style="display:none;">
                 <div id="view-alerts" class="view">
                     <div class="view-header">
-                        <h2>Dernières Oppportunités</h2>
-                        <span class="view-subtitle">Sceaux & Environs</span>
+                        <h2>Opportunités SeLoger</h2>
+                        <span class="view-subtitle">Détection 92 & Environs</span>
                     </div>
-                    <div id="alerts-list" class="property-grid">
-                        <!-- Les cartes v3.0.0 arrivent ici -->
-                    </div>
+                    <div id="alerts-list" class="property-grid"></div>
                 </div>
 
-                <!-- VUE CARTE -->
                 <div id="view-map" class="view hidden">
                     <div class="view-header">
-                        <h2>Veille Géographique</h2>
-                        <span id="map-count" class="view-subtitle">Chargement...</span>
+                        <h2>Géolocalisation</h2>
+                        <span id="map-count" class="view-subtitle">-</span>
                     </div>
                     <div class="map-container-hd">
                         <div class="map-placeholder">
                             <i data-lucide="map-pin"></i>
-                            <p>Visualisation des biens sur la carte interactive des Hauts-de-Seine.</p>
+                            <p>Analyse de la situation géographique des biens en cours.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- VUE FAVORIS -->
                 <div id="view-favorites" class="view hidden">
                     <div class="view-header">
-                        <h2>Mes Coups de Cœur</h2>
-                        <span class="view-subtitle">Votre sélection prioritaire</span>
+                        <h2>Coups de Cœur</h2>
                     </div>
-                    <div id="favorites-list" class="property-grid">
-                        <!-- Favoris ici -->
-                    </div>
+                    <div id="favorites-list" class="property-grid"></div>
                 </div>
-
             </section>
         </main>
 
-        <!-- NAVIGATION TAB BAR -->
         <nav class="app-navbar">
             <button class="tab-item active" onclick="app.switchView('alerts')">
                 <i data-lucide="bell"></i>
@@ -115,8 +99,7 @@
         </nav>
     </div>
 
-    <!-- LOGIQUE DE L'APP v3.0.0 -->
-    <script src="engine.js?v=3.0.0"></script>
+    <script src="engine.js?v=3.0.2_DEEP"></script>
     <script> lucide.createIcons(); </script>
 </body>
 </html>
