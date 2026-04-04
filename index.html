@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ImmoRadar v3.3.0</title>
+    <title>ImmoRadar v3.3.1</title>
     <!-- Map Engine (Leaflet) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="index.css">
@@ -13,17 +13,16 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        /* Force Power v3.3.0 */
-        if (!localStorage.getItem('v330_reset')) {
+        /* Force Version v3.3.1 */
+        if (!localStorage.getItem('v331_reset')) {
             localStorage.clear();
-            localStorage.setItem('v330_reset', 'done');
+            localStorage.setItem('v331_reset', 'done');
             window.location.reload(true);
         }
     </script>
 </head>
 <body>
     <div id="app">
-        <!-- HEADER TARGET UI -->
         <header class="main-header">
             <div class="header-left">
                 <h1 class="logo-text">Immo<span class="radar-text">Radar</span></h1>
@@ -41,33 +40,26 @@
         </header>
 
         <main id="app-content">
-            
-            <!-- WALL LOGIN -->
             <section id="login-wall" class="view" style="display:none;">
                 <div class="login-center">
-                    <h2 style="font-size: 1.8rem; margin-bottom: 10px;">Initialisation v3.3.0</h2>
-                    <p style="opacity: 0.6; margin-bottom: 30px;">Prêt pour la prospection</p>
+                    <h2 style="font-size: 1.8rem; margin-bottom: 20px;">Initialisation v3.3.1</h2>
                     <a id="btn-auth" href="#" class="btn-primary-target" style="background:#FFF; color:#000;">SE CONNECTER</a>
                 </div>
             </section>
 
-            <!-- AUTH CONTENT -->
             <section id="main-ui" style="display:none;">
-                
-                <!-- USER WELCOME BLOCK -->
                 <div class="welcome-card">
                     <div class="avatar-circle">MA</div>
                     <div class="welcome-text">
                         <h3>Bonjour, Marie Astrid 👋</h3>
-                        <p><span id="stat-listings">0</span> annonces détectées aujourd'hui</p>
+                        <p><span id="stat-listings">0</span> alertes détectées aujourd'hui</p>
                     </div>
                 </div>
 
-                <!-- RADAR TOGGLE BAR -->
                 <div class="radar-status-bar">
                     <div class="radar-info">
                         <span class="dot-green"></span>
-                        <p>Radar Vision Totale v3.3.0 actif</p>
+                        <p>Radar Vision Totale v3.3.1 actif</p>
                     </div>
                     <label class="switch">
                         <input type="checkbox" checked disabled>
@@ -75,7 +67,6 @@
                     </label>
                 </div>
 
-                <!-- LISTING VIEW -->
                 <div id="view-annonces" class="view">
                     <div class="filter-pills">
                         <button class="pill active" onclick="app.setFilter('all')">Tous</button>
@@ -85,12 +76,11 @@
                     <div id="alerts-list" class="listings-grid">
                         <div class="loader-container">
                             <h3>Radar en cours...</h3>
-                            <p id="diagnostic-text" style="font-size:0.6rem; opacity:0.6; padding-top:10px;">Diagnostic GMail v3.3.0</p>
+                            <p id="diagnostic-text" style="font-size:0.6rem; opacity:0.6; padding-top:10px;">Diagnostic v3.3.1</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- MAP VIEW -->
                 <div id="view-carte" class="view hidden">
                     <div id="map-container">
                         <div id="map"></div>
@@ -102,15 +92,12 @@
                     </div>
                 </div>
 
-                <!-- FAVORITES VIEW -->
                 <div id="view-favoris" class="view hidden">
                     <div id="favorites-list" class="listings-grid"></div>
                 </div>
-
             </section>
         </main>
 
-        <!-- TARGET TAB BAR -->
         <nav class="bottom-nav">
             <button class="nav-item active" onclick="app.switchView('annonces')">
                 <i data-lucide="clipboard-list"></i>
@@ -131,8 +118,7 @@
         </nav>
     </div>
 
-    <!-- ENGINE v3.3.0 "Restauration" -->
-    <script src="engine.js?v=3.3.0_FINAL"></script>
+    <script src="engine.js?v=3.3.1_RADAR"></script>
     <script> lucide.createIcons(); </script>
 </body>
 </html>
