@@ -3,24 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ImmoRadar v3.1.0</title>
+    <title>ImmoRadar v3.2.0</title>
     <link rel="stylesheet" href="index.css">
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
-        /* Force Reset v3.1.0 (Humble UI) */
-        if (!localStorage.getItem('v310_reset')) {
+        /* Force Vision v3.2.0 */
+        if (!localStorage.getItem('v320_reset')) {
             localStorage.clear();
-            localStorage.setItem('v310_reset', 'done');
+            localStorage.setItem('v320_reset', 'done');
             window.location.reload(true);
         }
     </script>
 </head>
 <body>
     <div id="app">
-        <!-- HEADER TARGET UI -->
         <header class="main-header">
             <div class="header-left">
                 <h1 class="logo-text">Immo<span class="radar-text">Radar</span></h1>
@@ -35,33 +34,26 @@
         </header>
 
         <main id="app-content">
-            
-            <!-- WALL LOGIN -->
             <section id="login-wall" class="view" style="display:none;">
                 <div class="login-center">
-                    <h2 style="font-size: 2rem; margin-bottom: 10px;">Démarrage...</h2>
-                    <p style="opacity: 0.6; margin-bottom: 30px;">Architecture v3.1.0 "Laser"</p>
-                    <a id="btn-auth" href="#" class="btn-primary-target">SE CONNECTER</a>
+                    <h2 style="font-size: 1.8rem; margin-bottom: 20px;">Initialisation v3.2.0</h2>
+                    <a id="btn-auth" href="#" class="btn-primary-target" style="background:#FFF; color:#000;">SE CONNECTER</a>
                 </div>
             </section>
 
-            <!-- AUTH CONTENT -->
             <section id="main-ui" style="display:none;">
-                
-                <!-- USER WELCOME BLOCK -->
                 <div class="welcome-card">
                     <div class="avatar-circle">MA</div>
                     <div class="welcome-text">
                         <h3>Bonjour, Marie Astrid 👋</h3>
-                        <p><span id="stat-cities">7</span> communes · <span id="stat-listings">0</span> biens aujourd'hui</p>
+                        <p><span id="stat-listings">0</span> alertes en cours d'analyse...</p>
                     </div>
                 </div>
 
-                <!-- RADAR TOGGLE BAR -->
                 <div class="radar-status-bar">
                     <div class="radar-info">
                         <span class="dot-green"></span>
-                        <p>Radar actif — <span id="alert-count">0</span> nouvelles alertes</p>
+                        <p>Radar Vision Totale actif</p>
                     </div>
                     <label class="switch">
                         <input type="checkbox" checked disabled>
@@ -69,22 +61,21 @@
                     </label>
                 </div>
 
-                <!-- FILTERS -->
                 <div class="filter-pills">
                     <button class="pill active" onclick="app.setFilter('all')">Tous</button>
                     <button class="pill" onclick="app.setFilter('Appartement')">Appt.</button>
                     <button class="pill" onclick="app.setFilter('Maison')">Maison</button>
-                    <button class="pill-icon"><i data-lucide="sliders-horizontal" style="width:14px;"></i> Filtres</button>
                 </div>
 
-                <!-- LISTING VIEW -->
                 <div id="view-annonces" class="view">
                     <div id="alerts-list" class="listings-grid">
-                        <!-- Cloned Cards v3.1.0 Here -->
+                        <div class="loader-container">
+                            <h3>Radar en cours...</h3>
+                            <p style="font-size:0.6rem; opacity:0.6; padding-top:10px;">Diagnostic Vision Totale v3.2.0</p>
+                        </div>
                     </div>
                 </div>
 
-                <!-- MAP VIEW -->
                 <div id="view-carte" class="view hidden">
                     <div class="map-placeholder-target">
                         <i data-lucide="map-pin"></i>
@@ -92,15 +83,12 @@
                     </div>
                 </div>
 
-                <!-- FAVORITES VIEW -->
                 <div id="view-favoris" class="view hidden">
                     <div id="favorites-list" class="listings-grid"></div>
                 </div>
-
             </section>
         </main>
 
-        <!-- TARGET TAB BAR -->
         <nav class="bottom-nav">
             <button class="nav-item active" onclick="app.switchView('annonces')">
                 <i data-lucide="clipboard-list"></i>
@@ -121,8 +109,7 @@
         </nav>
     </div>
 
-    <!-- ENGINE v3.1.0 "Laser" -->
-    <script src="engine.js?v=3.1.0_TARGET"></script>
+    <script src="engine.js?v=3.2.0_VISION"></script>
     <script> lucide.createIcons(); </script>
 </body>
 </html>
